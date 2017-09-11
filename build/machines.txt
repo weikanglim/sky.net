@@ -1,0 +1,10 @@
+fa17-cs425-g50-01.cs.illinois.edu
+fa17-cs425-g50-02.cs.illinois.edu
+fa17-cs425-g50-03.cs.illinois.edu
+fa17-cs425-g50-04.cs.illinois.edu
+fa17-cs425-g50-05.cs.illinois.edu
+fa17-cs425-g50-06.cs.illinois.edu
+fa17-cs425-g50-07.cs.illinois.edu
+fa17-cs425-g50-08.cs.illinois.edu
+fa17-cs425-g50-09.cs.illinois.edu
+fa17-cs425-g50-10.cs.illinois.edu
