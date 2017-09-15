@@ -8,6 +8,7 @@ namespace SkyNet20
     {
         // TODO: should there be a class for host
         private List<string> hostNames = null;
+        public static readonly int defaultPort = 26500;
 
         public SkyNetConfiguration(long heartBeatInterval)
         {
@@ -15,5 +16,7 @@ namespace SkyNet20
         }
 
         public long HeartBeatInterval { get; private set; }
+        public List<string> HostNames { get; private set; }
+        public static int DefaultPort { get; private set; }
     }
 }
