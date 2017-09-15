@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Net.Sockets;
+using System.Net;
+using System.IO;
 
 namespace SkyNet20
 {
@@ -13,6 +16,19 @@ namespace SkyNet20
         public SkyNetNode(SkyNetConfiguration configuration)
         {
             heartBeatInterval = configuration.HeartBeatInterval;
+
+            foreach (var hostName in configuration.HostNames)
+            {
+                IPAddress address = Dns.GetHostAddresses(hostName)[0];
+
+                SkyNetNodeInfo nodeInfo = new SkyNetNodeInfo
+                {
+                    IPAddress = address,
+                    HostName = hostName
+                };
+
+                skyNetNodeDictionary.Add(hostName, nodeInfo);
+            }
         }
 
         private void SendHeartBeat()
@@ -45,6 +61,13 @@ namespace SkyNet20
 
         public LogResults DistributedGrep(string grepExp)
         {
+            LogResults results;
+
+            foreach (var netNodeInfo in skyNetNodeDictionary.Values)
+            {
+
+            }
+
             // TODO: Wei
 
             // First run local grep
@@ -56,11 +79,30 @@ namespace SkyNet20
 
         public void Run()
         {
-            // TODO: Wei
+            TcpListener server = new TcpListener(IPAddress.Loopback, SkyNetConfiguration.DefaultPort);
+            server.Start();
 
-            // Runs the main-loop of the node, that will listen and respond to commands
-			// Wait for incoming packet, and then call ProcessGrepCommand
+            while (true)
+            {
+                TcpClient client = server.AcceptTcpClient();
 
+                // Treat all packets as grep commands for now
+                using (NetworkStream stream = client.GetStream())
+                {
+                    byte[] buffer = new byte[1024];
+
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        int numBytesRead;
+                        while ((numBytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            ms.Write(buffer, 0, numBytesRead);
+                        }
+
+                        ProcessGrepCommand(ms.ToArray());
+                    }
+                }
+            }
         }
 
         public void RunInteractive()
