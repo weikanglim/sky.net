@@ -9,15 +9,12 @@ namespace SkyNet20
 {
     class SkyNetNode
     {
-        // TODO: Should the key be a string or a class called host
         private Dictionary<string, SkyNetNodeInfo> skyNetNodeDictionary = new Dictionary<string, SkyNetNodeInfo>();
-        private long heartBeatInterval = -1;
+        private String logFilePath;
 
-        public SkyNetNode(SkyNetConfiguration configuration)
+        public SkyNetNode()
         {
-            heartBeatInterval = configuration.HeartBeatInterval;
-
-            foreach (var hostName in configuration.HostNames)
+            foreach (var hostName in SkyNetConfiguration.HostNames)
             {
                 IPAddress address = Dns.GetHostAddresses(hostName)[0];
 
@@ -29,6 +26,23 @@ namespace SkyNet20
 
                 skyNetNodeDictionary.Add(hostName, nodeInfo);
             }
+
+            string machineNumber = this.GetMachineNumber(Dns.GetHostName());
+            logFilePath = SkyNetConfiguration.LogPath + $"machine.{machineNumber}.log";
+        }
+
+        private string GetMachineNumber(string hostname)
+        {
+            string prefix = "fa17-cs425-g50-";
+            string suffix = ".cs.illinois.edu";
+            string machineNumber = "00";
+
+            if (hostname.StartsWith(prefix) && hostname.EndsWith(suffix))
+            {
+                machineNumber = hostname.Substring(prefix.Length, 2);
+            }
+
+            return machineNumber;
         }
 
         private void SendHeartBeat()
