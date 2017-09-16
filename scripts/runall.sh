@@ -1,0 +1,20 @@
+#!/bin/bash
+echo "Using logged in user: $USER"
+
+if [ -f "$1" ]
+then
+    script="$1"
+else
+    cmd="$1"
+fi
+
+for i in $(cat machines.txt); do
+    host=$i
+    echo -e "\e[93m$host\e[0m"
+    if [[ $cmd ]]
+    then
+        ssh ${USER}@${host} "$cmd"
+    else
+        cat "$script" | ssh ${USER}@${host}
+    fi
+done

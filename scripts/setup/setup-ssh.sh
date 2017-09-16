@@ -1,5 +1,5 @@
 #!/bin/bash
-ssh-keygen -t rsa
+# Run on host: ssh-keygen -t rsa
 
 for i in $(cat ../machines.txt); do
     host=$i
