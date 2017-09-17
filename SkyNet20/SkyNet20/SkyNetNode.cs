@@ -35,7 +35,7 @@ namespace SkyNet20
             string machineNumber = this.GetMachineNumber(Dns.GetHostName());
             logFilePath = SkyNetConfiguration.LogPath
                 + Path.DirectorySeparatorChar
-                + $"VM.{machineNumber}.log";
+                + $"vm.{machineNumber}.log";
         }
 
         private string GetMachineNumber(string hostname)
@@ -97,7 +97,7 @@ namespace SkyNet20
 
                         // Process grep
                         int lineCount = 0;
-                        string grepLogFile = $"VM.{this.GetMachineNumber(skyNetNode.HostName)}.log";
+                        string grepLogFile = $"vm.{this.GetMachineNumber(skyNetNode.HostName)}.log";
 
                         try
                         {
