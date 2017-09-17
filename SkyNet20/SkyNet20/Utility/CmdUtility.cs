@@ -29,11 +29,13 @@ namespace SkyNet20.Utility
 
             StringBuilder output = new StringBuilder();
             StringBuilder error = new StringBuilder();
+            int outputLines = 0;
             process.OutputDataReceived += (sender, e) => {
                 if (e.Data != null)
                 {
                     Console.WriteLine(e.Data);
                     output.AppendLine(e.Data);
+                    outputLines++;
                 }
             };
 
@@ -58,7 +60,7 @@ namespace SkyNet20.Utility
             CmdResult result = new CmdResult
             {
                 Output = output.ToString(),
-                OutputLines = output.Length,
+                OutputLines = outputLines,
                 Error = error.ToString(),
                 ExitCode = process.ExitCode,
             };
@@ -68,7 +70,7 @@ namespace SkyNet20.Utility
 
         public static CmdResult RunGrep(string grepExpression, string fileName)
         {
-            return RunCmd($"rg \"{grepExpression}\" {fileName}");
+            return RunCmd($"grep \"{grepExpression}\" {fileName}");
         }
     }
 }
