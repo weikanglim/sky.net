@@ -68,8 +68,12 @@ namespace SkyNet20
             
             using (StreamWriter writer = new StreamWriter(stream))
             {
-                CmdUtility.RunGrep(grepExpression, logFilePath, writer);
-                writer.WriteLine("\x3");
+                CmdResult result =  CmdUtility.RunGrep(grepExpression, logFilePath);
+                int length = result.Output.Length;
+                writer.WriteLine(length);
+                writer.WriteLine(result.OutputLines);
+
+                writer.Write(result.Output);
             }
         }
 
@@ -92,23 +96,22 @@ namespace SkyNet20
                         // Send grep
                         StreamReader reader = new StreamReader(stream);
                         StreamWriter writer = new StreamWriter(stream);
-                        writer.WriteLine(grepExpression);
+                        await writer.WriteLineAsync(grepExpression);
                         writer.Flush();
 
                         // Process grep
-                        int lineCount = 0;
+                        int packetLength = Convert.ToInt32(await reader.ReadLineAsync());
+                        int lineCount = Convert.ToInt32(await reader.ReadLineAsync()); ;
                         string grepLogFile = $"vm.{this.GetMachineNumber(skyNetNode.HostName)}.log";
 
                         try
                         {
+                            char[] buffer = new char[packetLength];
+                            await reader.ReadAsync(buffer, 0, buffer.Length);
+
                             using (StreamWriter fileWriter = File.AppendText(grepLogFile))
                             {
-                                string line;
-                                while ((line = await reader.ReadLineAsync()) != "\x3")
-                                {
-                                    fileWriter.WriteLine(line);
-                                    lineCount++;
-                                };
+                                await fileWriter.WriteAsync(buffer);
                             }
                         }
                         catch (IOException e)
@@ -237,10 +240,18 @@ namespace SkyNet20
                 stopWatch.Stop();
 
                 Console.WriteLine($"Results in {stopWatch.ElapsedMilliseconds} ms.");
+                int totalLength = 0;
                 foreach (var line in distributedGrep)
                 {
                     Console.WriteLine(line);
+                    int lineCount = 0;
+                    if (Int32.TryParse(line.Split(":")[1].Trim(), out lineCount))
+                    {
+                        totalLength += lineCount;
+                    }
                 }
+
+                Console.WriteLine("Total: " + totalLength);
             }
 
         }

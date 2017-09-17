@@ -8,7 +8,7 @@ namespace SkyNet20.Utility
 {
     class CmdUtility
     {
-        public static CmdResult RunCmd(string cmd, StreamWriter stdOutStream)
+        public static CmdResult RunCmd(string cmd)
         {
             var escapedArgs = cmd.Replace("\"", "\\\"");
 
@@ -34,7 +34,6 @@ namespace SkyNet20.Utility
                 {
                     Console.WriteLine(e.Data);
                     output.AppendLine(e.Data);
-                    stdOutStream.WriteLine(e.Data);
                 }
             };
 
@@ -59,6 +58,7 @@ namespace SkyNet20.Utility
             CmdResult result = new CmdResult
             {
                 Output = output.ToString(),
+                OutputLines = output.Length,
                 Error = error.ToString(),
                 ExitCode = process.ExitCode,
             };
@@ -66,9 +66,9 @@ namespace SkyNet20.Utility
             return result;
         }
 
-        public static CmdResult RunGrep(string grepExpression, string fileName, StreamWriter stdOutStream)
+        public static CmdResult RunGrep(string grepExpression, string fileName)
         {
-            return RunCmd($"rg \"{grepExpression}\" {fileName}", stdOutStream);
+            return RunCmd($"rg \"{grepExpression}\" {fileName}");
         }
     }
 }

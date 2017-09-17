@@ -8,6 +8,7 @@ namespace SkyNet20.Utility
     {
         public String Output { get; set; }
         public String Error { get; set; }
+        public int OutputLines { get; set; }
         public int ExitCode { get; set; }
     }
 }
