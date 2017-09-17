@@ -41,7 +41,7 @@ namespace SkyNet20
         {
             get
             {
-                return ConfigurationManager.AppSettings["LogPath"];
+                return ConfigurationManager.AppSettings["ProgramPath"];
             }
         }
 
@@ -49,7 +49,7 @@ namespace SkyNet20
         {
             get
             {
-                return ConfigurationManager.AppSettings["ProgramPath"];
+                return ConfigurationManager.AppSettings["LogPath"];
             }
         }
     }

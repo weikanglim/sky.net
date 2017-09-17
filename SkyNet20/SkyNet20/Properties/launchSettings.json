@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "SkyNet20": {
+      "commandName": "Project"
+    },
+    "RunClient": {
+      "commandName": "Project",
+      "commandLineArgs": "-i"
+    }
+  }
+}
