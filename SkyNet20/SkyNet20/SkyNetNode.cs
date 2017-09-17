@@ -4,6 +4,10 @@ using System.Text;
 using System.Net.Sockets;
 using System.Net;
 using System.IO;
+using SkyNet20.Utility;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace SkyNet20
 {
@@ -21,25 +25,28 @@ namespace SkyNet20
                 SkyNetNodeInfo nodeInfo = new SkyNetNodeInfo
                 {
                     IPAddress = address,
-                    HostName = hostName
+                    HostName = hostName,
+                    EndPoint = new IPEndPoint(address, SkyNetConfiguration.DefaultPort),
                 };
 
                 skyNetNodeDictionary.Add(hostName, nodeInfo);
             }
 
             string machineNumber = this.GetMachineNumber(Dns.GetHostName());
-            logFilePath = SkyNetConfiguration.LogPath + $"machine.{machineNumber}.log";
+            logFilePath = SkyNetConfiguration.LogPath
+                + Path.DirectorySeparatorChar
+                + $"VM.{machineNumber}.log";
         }
 
         private string GetMachineNumber(string hostname)
         {
             string prefix = "fa17-cs425-g50-";
             string suffix = ".cs.illinois.edu";
-            string machineNumber = "00";
+            string machineNumber = "0";
 
             if (hostname.StartsWith(prefix) && hostname.EndsWith(suffix))
             {
-                machineNumber = hostname.Substring(prefix.Length, 2);
+                machineNumber = hostname.Substring(prefix.Length, 2).TrimStart('0');
             }
 
             return machineNumber;
@@ -55,72 +62,174 @@ namespace SkyNet20
 
         }
 
-        private void ProcessGrepCommand(byte[] packetData)
+        private void ProcessGrepCommand(NetworkStream stream, String grepExpression)
         {
-            // TODO: Neil
-
-            // Receive packet and run local grep
-            // ?Sends back results
+            Console.WriteLine("Length of grep exp: " + grepExpression.Length);
+            Console.WriteLine($"Received grep request: {grepExpression}");
+            string grepResult = CmdUtility.RunGrep(grepExpression, logFilePath);
+            Console.WriteLine($"Grep result: {grepResult}");
+            
+            using (StreamWriter writer = new StreamWriter(stream))
+            {
+                writer.WriteLine(grepResult.Length);
+                writer.Write(grepResult);
+            }
         }
 
-        private List<string> SendGrepCommand(string grepExpression)
+        private async Task<string> SendGrepCommand(string grepExpression, SkyNetNodeInfo skyNetNode)
         {
-            // TODO: Neil
+            string results = "";
 
-            // Send packet to each network
-            // Will be ran by DistributedGrep for each node in the network
+            try
+            {
+                using (TcpClient client = new TcpClient())
+                {
 
-            return null;
+                    if (!client.ConnectAsync(skyNetNode.EndPoint.Address, skyNetNode.EndPoint.Port).Wait(5000))
+                    {
+                        throw new SocketException();
+                    }
+
+                    using (NetworkStream stream = client.GetStream())
+                    {
+                        StreamReader reader = new StreamReader(stream);
+                        StreamWriter writer = new StreamWriter(stream);
+                        writer.WriteLine(grepExpression.Length);
+                        writer.Write(grepExpression);
+                        writer.Flush();
+                        
+                        int length = -1;
+                        do
+                        {
+                            length = Convert.ToInt32(reader.ReadLine());
+                        }
+                        while (length < 0);
+                        char[] buffer = new char[length];
+                        await reader.ReadAsync(buffer, 0, length);
+                        results = new string(buffer);
+                    }
+                }
+            }
+            catch (SocketException)
+            {
+                skyNetNode.Status = Status.Dead;
+                results = $"No response from {skyNetNode.HostName}";
+            }
+            catch (IOException)
+            {
+                skyNetNode.Status = Status.Dead;
+                results = $"No response from {skyNetNode.HostName}";
+            }
+            catch (AggregateException ae)
+            {
+                if (ae.InnerException is SocketException)
+                {
+                    skyNetNode.Status = Status.Dead;
+                    results = $"No response from {skyNetNode.HostName}";
+                }
+            }
+            catch (Exception e)
+            {
+                Debugger.Log((int) TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
+            }
+
+            return results;
         }
 
-        public LogResults DistributedGrep(string grepExp)
+        public async Task<List<String>> DistributedGrep(string grepExp)
         {
-            LogResults results;
+            var results = new List<String>();
+            var tasks = new List<Task<String>>();
 
             foreach (var netNodeInfo in skyNetNodeDictionary.Values)
             {
-
+                if (netNodeInfo.Status == Status.Alive)
+                {
+                    tasks.Add(SendGrepCommand(grepExp, netNodeInfo));
+                }
             }
 
-            // TODO: Wei
+            while (tasks.Count > 0)
+            {
+                Task<string> finishedtask = await Task.WhenAny(tasks);
 
-            // First run local grep
-			// Then, for each node in the network send a grep command and listen for response
-			// Wil likely need to update SkyNetNodeInfo status if a node doesn't respond
+                tasks.Remove(finishedtask);
 
-            return null;
+                if (finishedtask.IsCompletedSuccessfully)
+                {
+                    results.Add(finishedtask.Result);
+                }
+            }
+
+            return results;
         }
+
 
         public void Run()
         {
-            TcpListener server = new TcpListener(IPAddress.Loopback, SkyNetConfiguration.DefaultPort);
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
             server.Start();
 
             while (true)
             {
-                TcpClient client = server.AcceptTcpClient();
+                Console.WriteLine($"Waiting for a connection on port {((IPEndPoint)server.LocalEndpoint).Port}... ");
 
-                // Treat all packets as grep commands for now
-                using (NetworkStream stream = client.GetStream())
+                try
                 {
-                    byte[] buffer = new byte[1024];
-
-                    using (MemoryStream ms = new MemoryStream())
+                    using (TcpClient client = server.AcceptTcpClient())
                     {
-                        int numBytesRead;
-                        while ((numBytesRead = stream.Read(buffer, 0, buffer.Length)) > 0)
+
+                        Console.WriteLine("Connected to: " + ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString());
+
+                        // Treat all packets as grep commands for now
+                        String request;
+                        using (NetworkStream stream = client.GetStream())
                         {
-                            ms.Write(buffer, 0, numBytesRead);
+                            StreamReader reader = new StreamReader(stream);
+                            int length = Convert.ToInt32(reader.ReadLine());
+                            char[] buffer = new char[length];
+                            reader.Read(buffer, 0, length);
+
+                            request = new string(buffer);
+
+                            ProcessGrepCommand(stream, request);
                         }
 
-                        ProcessGrepCommand(ms.ToArray());
+                        Console.WriteLine("Closing client connection");
                     }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Exception: " + e);
                 }
             }
         }
 
         public void RunInteractive()
         {
+            while (true)
+            {
+                Console.WriteLine();
+                Console.Write("Query log files: ");
+                string cmd = Console.ReadLine();
+
+                if (cmd.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                string grepExp = cmd;
+                Stopwatch stopWatch = new Stopwatch();
+                stopWatch.Start();
+                var distributedGrep = this.DistributedGrep(grepExp).ConfigureAwait(false).GetAwaiter().GetResult();
+                stopWatch.Stop();
+
+                Console.WriteLine($"Results in {stopWatch.ElapsedMilliseconds} ms.");
+                foreach (var line in distributedGrep)
+                {
+                    Console.WriteLine(line);
+                }
+            }
 
         }
 
