@@ -13,8 +13,8 @@ for i in $(cat machines.txt); do
     echo -e "\e[93m$host\e[0m"
     if [[ $cmd ]]
     then
-        ssh ${USER}@${host} "$cmd"
+        ssh -t -t ${USER}@${host} "$cmd"
     else
-        cat "$script" | ssh ${USER}@${host}
+        cat "$script" | ssh -T ${USER}@${host}
     fi
 done

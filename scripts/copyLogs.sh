@@ -11,7 +11,7 @@ fi
 counter=1
 for i in $(cat machines.txt); do
     host=$i
-    file=$logDir/VM.$counter.log
+    file=$logDir/vm.$counter.log
     echo -e "\e[93m$host\e[0m"
 
     if [[ -f $file ]]

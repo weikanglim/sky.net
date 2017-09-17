@@ -12,6 +12,10 @@ if [ ! -d $outDir ]; then
 fi
 
 if [ ! -d $logDir ]; then
+	if [ -f $logDir ]; then
+		rm $logDir
+	fi
+
 	mkdir $logDir
 fi
 
@@ -31,4 +35,4 @@ dotnet build -o $outDir
 # Start new process
 echo "Starting server..."
 cd $outDir
-dotnet SkyNet20.dll &
+nohup dotnet SkyNet20.dll > skynet.out 2> skynet.err < /dev/null  &

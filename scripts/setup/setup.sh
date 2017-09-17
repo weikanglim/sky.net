@@ -5,6 +5,10 @@ sudo sh -c 'echo -e "[packages-microsoft-com-prod]\nname=packages-microsoft-com-
 sudo yum install libunwind libic -y
 sudo yum install dotnet-sdk-2.0.0 -y
 
+# Install ripgrep
+sudo yum-config-manager --add-repo=https://copr.fedorainfracloud.org/coprs/carlwgeorge/ripgrep/repo/epel-7/carlwgeorge-ripgrep-epel-7.repo
+sudo yum install ripgrep
+
 # Install deploy key for git
 rsa=~/.ssh/id_gitlab_uiuc
 
