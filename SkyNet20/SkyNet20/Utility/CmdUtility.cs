@@ -1,13 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Text;
 
 namespace SkyNet20.Utility
 {
     class CmdUtility
     {
-        public static CmdResult RunCmd(string cmd)
+        public static CmdResult RunCmd(string cmd, StreamWriter stdOutStream)
         {
             var escapedArgs = cmd.Replace("\"", "\\\"");
 
@@ -32,7 +33,8 @@ namespace SkyNet20.Utility
                 if (e.Data != null)
                 {
                     Console.WriteLine(e.Data);
-                    output.Append(e.Data);
+                    output.AppendLine(e.Data);
+                    stdOutStream.WriteLine(e.Data);
                 }
             };
 
@@ -64,14 +66,9 @@ namespace SkyNet20.Utility
             return result;
         }
 
-        public static string RunGrep(string grepExpression, string fileName)
+        public static CmdResult RunGrep(string grepExpression, string fileName, StreamWriter stdOutStream)
         {
-            // Might need to be stream based, to enable writing of data faster
-            // TODO: What is the intended output format?
-            CmdResult cmdResult = RunCmd($"rg \"{grepExpression}\" {fileName}");
-            string result =  cmdResult.Output;
-
-            return result;
+            return RunCmd($"rg \"{grepExpression}\" {fileName}", stdOutStream);
         }
     }
 }

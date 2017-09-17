@@ -64,15 +64,12 @@ namespace SkyNet20
 
         private void ProcessGrepCommand(NetworkStream stream, String grepExpression)
         {
-            Console.WriteLine("Length of grep exp: " + grepExpression.Length);
             Console.WriteLine($"Received grep request: {grepExpression}");
-            string grepResult = CmdUtility.RunGrep(grepExpression, logFilePath);
-            Console.WriteLine($"Grep result: {grepResult}");
             
             using (StreamWriter writer = new StreamWriter(stream))
             {
-                writer.WriteLine(grepResult.Length);
-                writer.Write(grepResult);
+                CmdUtility.RunGrep(grepExpression, logFilePath, writer);
+                writer.WriteLine("\x3");
             }
         }
 
@@ -92,21 +89,35 @@ namespace SkyNet20
 
                     using (NetworkStream stream = client.GetStream())
                     {
+                        // Send grep
                         StreamReader reader = new StreamReader(stream);
                         StreamWriter writer = new StreamWriter(stream);
-                        writer.WriteLine(grepExpression.Length);
-                        writer.Write(grepExpression);
+                        writer.WriteLine(grepExpression);
                         writer.Flush();
-                        
-                        int length = -1;
-                        do
+
+                        // Process grep
+                        int lineCount = 0;
+                        string grepLogFile = $"VM.{this.GetMachineNumber(skyNetNode.HostName)}.log";
+
+                        try
                         {
-                            length = Convert.ToInt32(reader.ReadLine());
+                            using (StreamWriter fileWriter = File.AppendText(grepLogFile))
+                            {
+                                string line;
+                                while ((line = await reader.ReadLineAsync()) != "\x3")
+                                {
+                                    fileWriter.WriteLine(line);
+                                    lineCount++;
+                                };
+                            }
                         }
-                        while (length < 0);
-                        char[] buffer = new char[length];
-                        await reader.ReadAsync(buffer, 0, length);
-                        results = new string(buffer);
+                        catch (IOException e)
+                        {
+                            Console.WriteLine("ERROR: Unable to write file " + grepLogFile);
+                            Debugger.Log((int)TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
+                        }
+
+                        results = $"{skyNetNode.HostName} : {lineCount}";
                     }
                 }
             }
@@ -127,9 +138,15 @@ namespace SkyNet20
                     skyNetNode.Status = Status.Dead;
                     results = $"No response from {skyNetNode.HostName}";
                 }
+                else
+                {
+                    results = "Unhandled exception " + ae.InnerException.Message;
+                    Debugger.Log((int)TraceLevel.Error, Debugger.DefaultCategory, ae.ToString());
+                }
             }
             catch (Exception e)
             {
+                results = "Unhandled exception " + e.InnerException.Message;
                 Debugger.Log((int) TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
             }
 
@@ -182,15 +199,10 @@ namespace SkyNet20
                         Console.WriteLine("Connected to: " + ((IPEndPoint)client.Client.RemoteEndPoint).Address.ToString());
 
                         // Treat all packets as grep commands for now
-                        String request;
                         using (NetworkStream stream = client.GetStream())
                         {
                             StreamReader reader = new StreamReader(stream);
-                            int length = Convert.ToInt32(reader.ReadLine());
-                            char[] buffer = new char[length];
-                            reader.Read(buffer, 0, length);
-
-                            request = new string(buffer);
+                            string request = reader.ReadLine();
 
                             ProcessGrepCommand(stream, request);
                         }
