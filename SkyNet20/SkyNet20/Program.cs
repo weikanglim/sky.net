@@ -3,7 +3,10 @@ using SkyNet20.Utility;
 
 namespace SkyNet20
 {
-    class Program
+    /// <summary>
+    /// Runs the <see cref="SkyNet20"></see> program.
+    /// </summary>
+    public class Program
     {
         static void Main(string[] args)
         {

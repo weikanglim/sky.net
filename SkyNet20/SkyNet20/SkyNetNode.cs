@@ -16,6 +16,9 @@ namespace SkyNet20
         private Dictionary<string, SkyNetNodeInfo> skyNetNodeDictionary = new Dictionary<string, SkyNetNodeInfo>();
         private String logFilePath;
 
+        /// <summary>
+        /// Initializes the instance of <see cref="SkyNetNode"/> class.
+        /// </summary>
         public SkyNetNode()
         {
             foreach (var hostName in SkyNetConfiguration.HostNames)
@@ -156,6 +159,15 @@ namespace SkyNet20
             return results;
         }
 
+        /// <summary>
+        /// Runs a distributed grep command to all connected nodes.
+        /// </summary>
+        /// <param name="grepExp">
+        /// A valid regular expression for GNU grep.
+        /// </param>
+        /// <returns>
+        /// The distributed grep results.
+        /// </returns>
         public async Task<List<String>> DistributedGrep(string grepExp)
         {
             var results = new List<String>();
@@ -184,7 +196,9 @@ namespace SkyNet20
             return results;
         }
 
-
+        /// <summary>
+        /// Runs the <see cref="SkyNetNode"/> as a server node.
+        /// </summary>
         public void Run()
         {
             TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
@@ -220,6 +234,9 @@ namespace SkyNet20
             }
         }
 
+        /// <summary>
+        /// Runs the <see cref="SkyNetNode"/> in interactive mode, acts as a client for debugging purposes.
+        /// </summary>
         public void RunInteractive()
         {
             while (true)

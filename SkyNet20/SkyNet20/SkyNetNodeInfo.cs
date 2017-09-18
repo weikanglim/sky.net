@@ -11,6 +11,9 @@ namespace SkyNet20
         Dead
     };
 
+    /// <summary>
+    /// Stores information about a <see cref="SkyNetNode"/>.
+    /// </summary>
     public class SkyNetNodeInfo
     {
         public IPAddress IPAddress{ get; set; }

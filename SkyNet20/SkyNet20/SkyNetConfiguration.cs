@@ -6,7 +6,10 @@ using SkyNet20.Configuration;
 
 namespace SkyNet20
 {
-    class SkyNetConfiguration
+    /// <summary>
+    /// Manages all configuration settings for <see cref="SkyNet20"/>.
+    /// </summary>
+    public class SkyNetConfiguration
     {
         public static long HeartBeatInterval {
             get
@@ -15,6 +18,9 @@ namespace SkyNet20
             }
         }
 
+        /// <summary>
+        /// List of hostnames of machines in the connected SkyNet network.
+        /// </summary>
         public static List<String> HostNames
         {
             get
@@ -29,6 +35,9 @@ namespace SkyNet20
             }
         }
 
+        /// <summary>
+        /// The default listening server port for <see cref="SkyNetNode"/> instances.
+        /// </summary>
         public static int DefaultPort
         {
             get
@@ -37,6 +46,9 @@ namespace SkyNet20
             }
         }
 
+        /// <summary>
+        /// The SkyNet installation path.
+        /// </summary>
         public static string ProgramPath
         {
             get
@@ -45,6 +57,9 @@ namespace SkyNet20
             }
         }
 
+        /// <summary>
+        /// The SkyNet log path.
+        /// </summary>
         public static string LogPath
         {
             get
