@@ -264,7 +264,8 @@ namespace SkyNet20
                 {
                     Console.WriteLine(line);
                     int lineCount = 0;
-                    if (Int32.TryParse(line.Split(":")[1].Trim(), out lineCount))
+                    string[] res = line.Split(":");
+                    if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out lineCount))
                     {
                         totalLength += lineCount;
                     }
