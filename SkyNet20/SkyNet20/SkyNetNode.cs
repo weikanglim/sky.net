@@ -11,7 +11,7 @@ using System.Diagnostics;
 
 namespace SkyNet20
 {
-    class SkyNetNode
+    public class SkyNetNode
     {
         private Dictionary<string, SkyNetNodeInfo> skyNetNodeDictionary = new Dictionary<string, SkyNetNodeInfo>();
         private String logFilePath;
