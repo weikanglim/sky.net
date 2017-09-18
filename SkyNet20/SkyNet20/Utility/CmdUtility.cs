@@ -6,9 +6,21 @@ using System.Text;
 
 namespace SkyNet20.Utility
 {
-    class CmdUtility
+    /// <summary>
+    /// Utility class for running bash commands.
+    /// </summary>
+    public class CmdUtility
     {
-        public static CmdResult RunCmd(string cmd, StreamWriter stdOutStream)
+        /// <summary>
+        /// Runs a bash command.
+        /// </summary>
+        /// <param name="cmd">
+        /// A cmd to run.
+        /// </param>
+        /// <returns>
+        /// A <see cref="CmdResult"/> that contains the results of the command.
+        /// </returns>
+        public static CmdResult RunCmd(string cmd)
         {
             var escapedArgs = cmd.Replace("\"", "\\\"");
 
@@ -29,12 +41,13 @@ namespace SkyNet20.Utility
 
             StringBuilder output = new StringBuilder();
             StringBuilder error = new StringBuilder();
+            int outputLines = 0;
             process.OutputDataReceived += (sender, e) => {
                 if (e.Data != null)
                 {
                     Console.WriteLine(e.Data);
                     output.AppendLine(e.Data);
-                    stdOutStream.WriteLine(e.Data);
+                    outputLines++;
                 }
             };
 
@@ -59,6 +72,7 @@ namespace SkyNet20.Utility
             CmdResult result = new CmdResult
             {
                 Output = output.ToString(),
+                OutputLines = outputLines,
                 Error = error.ToString(),
                 ExitCode = process.ExitCode,
             };
@@ -66,9 +80,22 @@ namespace SkyNet20.Utility
             return result;
         }
 
-        public static CmdResult RunGrep(string grepExpression, string fileName, StreamWriter stdOutStream)
+        /// <summary>
+        /// Runs a grep command.
+        /// </summary>
+        /// <param name="grepExpression">
+        /// A regualr expression that is valid for GNU grep.
+        /// </param>
+        /// <param name="fileName">
+        /// A filename to perform the grep command.
+        /// </param>
+        /// <returns>
+        /// A <see cref="CmdResult"/> that contains the results of the command.
+        /// </returns>
+        /// <seealso cref="CmdUtility.RunCmd(string)"/>
+        public static CmdResult RunGrep(string grepExpression, string fileName)
         {
-            return RunCmd($"rg \"{grepExpression}\" {fileName}", stdOutStream);
+            return RunCmd($"grep \"{grepExpression}\" {fileName}");
         }
     }
 }
