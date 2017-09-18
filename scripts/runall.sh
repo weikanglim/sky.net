@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "Using logged in user: $USER"
+pushd $(dirname "$0")
 
 if [ -f "$1" ]
 then
@@ -18,3 +19,5 @@ for i in $(cat machines.txt); do
         cat "$script" | ssh -T ${USER}@${host}
     fi
 done
+
+popd

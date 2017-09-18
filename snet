@@ -1,0 +1,2 @@
+#!/bin/bash
+./scripts/runall.sh localproddeploy.sh
