@@ -35,5 +35,5 @@ In the event that no servers have responded, SkyNet.2.0 might not be running on 
 
 To start, or restart SkyNet.2.0 servers on all machines, run the following command in the root project directory:
 
-    deploy
+    snet
      
