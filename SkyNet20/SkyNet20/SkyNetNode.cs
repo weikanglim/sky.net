@@ -78,6 +78,8 @@ namespace SkyNet20
 
                 writer.Write(result.Output);
             }
+
+            Console.WriteLine("Processed grep request.");
         }
 
         private async Task<string> SendGrepCommand(string grepExpression, SkyNetNodeInfo skyNetNode)

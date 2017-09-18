@@ -45,7 +45,6 @@ namespace SkyNet20.Utility
             process.OutputDataReceived += (sender, e) => {
                 if (e.Data != null)
                 {
-                    Console.WriteLine(e.Data);
                     output.AppendLine(e.Data);
                     outputLines++;
                 }
@@ -54,7 +53,6 @@ namespace SkyNet20.Utility
             process.ErrorDataReceived += (sender, e) => {
                 if (e.Data != null)
                 {
-                    Console.WriteLine(e.Data);
                     error.Append(e.Data);
                 }
             };
