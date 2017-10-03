@@ -67,5 +67,39 @@ namespace SkyNet20
                 return ConfigurationManager.AppSettings["LogPath"];
             }
         }
+
+
+        /// <summary>
+        /// A flag to indicate whether the current instance is running as a coordinator.
+        /// </summary>
+        public static bool IsCoordinator
+        {
+            get
+            {
+                return Boolean.Parse(ConfigurationManager.AppSettings["IsCoordinator"]);
+            }
+        }
+
+        /// <summary>
+        /// Duration of a gossip round, in milliseconds.
+        /// </summary>
+        public static long GossipRoundInterval
+        {
+            get
+            {
+                return Int64.Parse(ConfigurationManager.AppSettings["GossipRoundInterval"]);
+            }
+        }
+
+        /// <summary>
+        /// Number of targets per gossip round.
+        /// </summary>
+        public static int GossipRoundTargets
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["GossipRoundTargets"]);
+            }
+        }
     }
 }
