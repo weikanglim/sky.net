@@ -19,6 +19,25 @@ namespace SkyNet20
         }
 
         /// <summary>
+        /// Collection of machines in the connected SkyNet network.
+        /// </summary>
+        public static Dictionary<string, SkyNetMachine> Machines
+        {
+            get
+            {
+                var config = ConfigurationManager.GetSection("machines") as SkyNetConfig;
+                Dictionary<string, SkyNetMachine> result = new Dictionary<string, SkyNetMachine>();
+
+                foreach (SkyNetMachine machine in config.Instances)
+                {
+                    result.Add(machine.HostName, machine);
+                }
+
+                return result;
+            }
+        }
+
+        /// <summary>
         /// List of hostnames of machines in the connected SkyNet network.
         /// </summary>
         public static List<String> HostNames
@@ -27,10 +46,12 @@ namespace SkyNet20
             {
                 var config = ConfigurationManager.GetSection("machines") as SkyNetConfig;
                 List<String> result = new List<String>();
+
                 foreach (SkyNetMachine machine in config.Instances)
                 {
                     result.Add(machine.HostName);
                 }
+
                 return result;
             }
         }
@@ -65,18 +86,6 @@ namespace SkyNet20
             get
             {
                 return ConfigurationManager.AppSettings["LogPath"];
-            }
-        }
-
-
-        /// <summary>
-        /// A flag to indicate whether the current instance is running as a coordinator.
-        /// </summary>
-        public static bool IsCoordinator
-        {
-            get
-            {
-                return Boolean.Parse(ConfigurationManager.AppSettings["IsCoordinator"]);
             }
         }
 
