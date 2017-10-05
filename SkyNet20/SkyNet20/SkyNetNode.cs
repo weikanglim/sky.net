@@ -140,7 +140,7 @@ namespace SkyNet20
 
             try
             {
-                UdpClient udpClient = new UdpClient(SkyNetConfiguration.DefaultPort);
+                UdpClient udpClient = new UdpClient();
                 udpClient.Client.SendTimeout = 5000;
                 udpClient.Client.ReceiveTimeout = 5000;
                 udpClient.Send(joinPacket, joinPacket.Length, endPoint);
@@ -216,8 +216,11 @@ namespace SkyNet20
 
                         grepPacket = stream.ToArray();
                     }
-                    
-                    await client.SendAsync(grepPacket, grepPacket.Length, endPoint);
+
+                    if (!client.SendAsync(grepPacket, grepPacket.Length, endPoint).Wait(5000))
+                    {
+                        throw new SocketException((int) SocketError.TimedOut);
+                    };
 
                     int ackRetries = 5;
                     bool ackSuccess = false;
@@ -357,11 +360,16 @@ namespace SkyNet20
                     case PayloadType.MembershipJoin:
                         if (this.isIntroducer)
                         {
-                            IPAddress introducerAddress = SkyNetNodeInfo.ParseMachineId(machineId).Item1;
-                            SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId, this.GetEndPoint(introducerAddress));
-                            this.machineList.Add(joinedNode.MachineId, joinedNode);
+                            if (!this.machineList.ContainsKey(machineId))
+                            {
+                                IPAddress introducerAddress = SkyNetNodeInfo.ParseMachineId(machineId).Item1;
+                                SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId, this.GetEndPoint(introducerAddress));
 
-                            this.LogImportant($"{machineId} has joined.");
+
+                                this.machineList.Add(joinedNode.MachineId, joinedNode);
+
+                                this.LogImportant($"{machineId} has joined.");
+                            }
                         }
                         else
                         {
