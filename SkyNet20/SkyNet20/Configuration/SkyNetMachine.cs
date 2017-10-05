@@ -21,16 +21,8 @@ namespace SkyNet20.Configuration
         {
             get
             {
-                string introducer = this["IsIntroducer"] as string;
-
-                if (introducer != null)
-                {
-                    return Boolean.Parse(introducer);
-                }
-                else
-                {
-                    return false;
-                }
+                bool? introducer = this["IsIntroducer"] as bool?;
+                return introducer ?? false;
             }
         }
     }
