@@ -15,5 +15,15 @@ namespace SkyNet20.Configuration
                 return this["hostname"] as string;
             }
         }
+
+        [ConfigurationProperty("IsIntroducer", IsRequired = false, IsKey = false)]
+        public bool IsIntroducer
+        {
+            get
+            {
+                bool? introducer = this["IsIntroducer"] as bool?;
+                return introducer ?? false;
+            }
+        }
     }
 }

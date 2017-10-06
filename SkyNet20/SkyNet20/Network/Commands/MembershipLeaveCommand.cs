@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SkyNet20
+namespace SkyNet20.Network.Commands
 {
-    class SkyNetCommand
+    public class MembershipLeaveCommand
     {
     }
 }

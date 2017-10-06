@@ -2,8 +2,13 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <DebugType>portable</DebugType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Extensions\TasksExtension.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="protobuf-net" Version="2.3.2" />
