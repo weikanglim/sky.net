@@ -560,6 +560,7 @@ namespace SkyNet20
 
                                 if (joined)
                                 {
+                                    // Wait for membership list to be sent
                                     for (int i = 0; i < 10 && machineList.Count <= 1; i++)
                                     {
                                         await Task.Delay(200);
@@ -568,12 +569,14 @@ namespace SkyNet20
                                     Console.WriteLine("Join was successful, but no membership list received after 2 seconds.");
                                 }
 
+                                // UI waits
                                 await Task.Delay(TimeSpan.FromMilliseconds(200));
                                 break;
 
                             case 4:
                                 this.SendLeaveCommand(this.GetIntroducer());
 
+                                // UI waits
                                 await Task.Delay(TimeSpan.FromMilliseconds(200));
                                 break;
 
@@ -599,6 +602,7 @@ namespace SkyNet20
         /// </summary>
         public void Run()
         {
+            // Auto-join
             //if (!this.isIntroducer)
             //{
             //    // Join the network
@@ -613,9 +617,9 @@ namespace SkyNet20
             //}
 
             Task[] serverTasks = {
-                ReceiveCommand(),
+                ReceiveCommand(), //!TODO: This needs to be a single loop of receive -> send
                 PromptUser(),
-                DisseminateMembershipList(),
+                //DisseminateMembershipList(),
             };
 
             Task.WaitAll(serverTasks.ToArray());
