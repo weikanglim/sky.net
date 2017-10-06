@@ -28,10 +28,7 @@ namespace SkyNet20
         private StreamWriter logFileWriter;
         private String logFilePath;
         private bool isIntroducer;
-        private static readonly byte AckLeave = 0xFA;
-        private static readonly byte AckGrep = 0xF0;
-        private static readonly byte AckJoinFailure = 0xA1;
-
+        private bool isConnected = false;
 
         /// <summary>
         /// Initializes the instance of <see cref="SkyNetNode"/> class.
@@ -59,6 +56,7 @@ namespace SkyNet20
             }
 
             logFileWriter = File.AppendText(logFilePath);
+            logFileWriter.AutoFlush = true;
         }
 
         private string GetMachineNumber(string hostname)
@@ -83,12 +81,12 @@ namespace SkyNet20
         private bool SendJoinCommand(SkyNetNodeInfo introducer)
         {
             this.machineId = SkyNetNodeInfo.GetMachineId(SkyNetNodeInfo.ParseMachineId(this.machineId).Item1);
+            this.machineList.Add(this.machineId, new SkyNetNodeInfo(this.hostEntry.HostName, this.machineId));
             this.Log($"Updated machine id to {this.machineId}");
 
             this.Log($"Sending join command to {introducer.HostName}.");
             bool joinSuccessful;
             byte[] joinPacket;
-            IPEndPoint endPoint = introducer.EndPoint;
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -104,18 +102,21 @@ namespace SkyNet20
 
             try
             {
-                UdpClient udpClient = new UdpClient();
-                udpClient.Client.SendTimeout = 2000;
-                udpClient.Client.ReceiveTimeout = 2000;
-                udpClient.Send(joinPacket, joinPacket.Length, endPoint);
+                using (UdpClient udpClient = new UdpClient())
+                {
+                    udpClient.Client.SendTimeout = 2000;
+                    udpClient.Client.ReceiveTimeout = 2000;
+                    udpClient.Send(joinPacket, joinPacket.Length, introducer.DefaultEndPoint);
 
-                joinSuccessful = true;
-
-                // !TODO: Membership list
+                    joinSuccessful = true;
+                    this.isConnected = true;
+                }
             }
             catch (SocketException se)
             {
                 this.LogError("Join failure due to socket exception: " + se.SocketErrorCode);
+                this.machineList.Clear();
+
                 joinSuccessful = false;
             }
 
@@ -128,7 +129,6 @@ namespace SkyNet20
 
             bool leaveSucessful;
             byte[] joinPacket;
-            IPEndPoint endPoint = introducer.EndPoint;
 
             using (MemoryStream stream = new MemoryStream())
             {
@@ -144,14 +144,16 @@ namespace SkyNet20
 
             try
             {
-                UdpClient udpClient = new UdpClient();
-                udpClient.Client.SendTimeout = 5000;
-                udpClient.Client.ReceiveTimeout = 5000;
-                udpClient.Send(joinPacket, joinPacket.Length, endPoint);
+                using (UdpClient udpClient = new UdpClient())
+                {
+                    udpClient.Client.SendTimeout = 5000;
+                    udpClient.Client.ReceiveTimeout = 5000;
+                    udpClient.Send(joinPacket, joinPacket.Length, introducer.DefaultEndPoint);
 
-                this.Log("Waiting for leave command acknowledgement.");
-                byte[] received = udpClient.Receive(ref endPoint);
-                leaveSucessful = received.Length == 1 && received[0] == AckLeave;
+                    this.machineList.Clear();
+                    leaveSucessful = true;
+                    this.isConnected = false;
+                }
             }
             catch (SocketException se)
             {
@@ -167,43 +169,166 @@ namespace SkyNet20
             return leaveSucessful;
         }
 
+        private bool SendMembershipUpdateCommand(SkyNetNodeInfo node)
+        {
+            this.Log($"Sending membership list update command to {node.HostName}.");
+
+            bool membershipSent;
+            byte[] membershipListPacket;
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                SkyNetPacketHeader header = new SkyNetPacketHeader
+                {
+                    MachineId = this.machineId,
+                    PayloadType = PayloadType.MembershipUpdate,
+                };
+
+                MembershipUpdateCommand membershipUpdate = new MembershipUpdateCommand
+                {
+                    machineList = this.machineList,
+                };
+
+                Serializer.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128);
+                Serializer.SerializeWithLengthPrefix(stream, membershipUpdate, PrefixStyle.Base128);
+
+                membershipListPacket = stream.ToArray();
+            }
+
+            try
+            {
+                using (UdpClient udpClient = new UdpClient())
+                {
+                    udpClient.Client.SendTimeout = 1000;
+                    udpClient.Client.ReceiveTimeout = 1000;
+                    udpClient.Send(membershipListPacket, membershipListPacket.Length, node.DefaultEndPoint);
+
+                    membershipSent = true;
+                }
+            }
+            catch (SocketException se)
+            {
+                this.LogError("Send membership failure due to socket exception: " + se.SocketErrorCode);
+                membershipSent = false;
+            }
+            catch (Exception e)
+            {
+                this.LogError("Send membership failure due to socket exception: " + e.StackTrace);
+                membershipSent = false;
+            }
+
+            return membershipSent;
+        }
+
+        private async Task DisseminateMembershipList()
+        {
+            while (true)
+            {
+                try
+                {
+                    if (this.isConnected)
+                    {
+                        Random rand = new Random();
+                        List<string> targets = this.machineList.Keys
+                            .Where(machineId => machineId != this.machineId)
+                            .ToList<string>();
+
+                        for (int i = 0; i < SkyNetConfiguration.GossipRoundTargets && targets.Count > 0; i++)
+                        {
+                            int element = rand.Next(targets.Count);
+                            string target = targets[element];
+                            targets.RemoveAt(element);
+
+                            this.SendMembershipUpdateCommand(this.machineList[target]);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.LogError("Unexpected error: " + ex.StackTrace);
+                }
+
+                await Task.Delay(SkyNetConfiguration.GossipRoundInterval);
+            }
+        }
+
+        private void ProcessLeaveCommand(string machineId)
+        {
+            if (this.isIntroducer)
+            {
+                if (machineList.ContainsKey(machineId))
+                {
+                    machineList.Remove(machineId);
+
+                    this.LogImportant($"{machineId} has left.");
+                }
+            }
+            else
+            {
+                this.LogWarning($"Not a coordinator, but received request to leave.");
+            }
+        }
+
+        private void ProcessJoinCommand(string machineId)
+        {
+            if (this.isIntroducer)
+            {
+                IPAddress introducerAddress = SkyNetNodeInfo.ParseMachineId(machineId).Item1;
+                SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId);
+
+                if (!this.machineList.ContainsKey(machineId))
+                {
+                    this.machineList.Add(joinedNode.MachineId, joinedNode);
+                    this.LogImportant($"{machineId} has joined.");
+
+                    this.SendMembershipUpdateCommand(joinedNode);
+                }
+                else if (machineId != this.machineId) // Check to see if the machine was not the introducer itself
+                {
+                    this.LogWarning($"Unexpected {machineId} attempted to rejoin the network.");
+                }
+            }
+            else
+            {
+                this.LogWarning($"Not a coordinator, but received request to join.");
+            }
+        }
+
+        private void ProcessMembershipUpdateCommand(string machineId, MembershipUpdateCommand updateCommand)
+        {
+            this.MergeMembershipList(updateCommand.machineList);
+        }
+
         private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
         {
             this.Log($"Received grep request: {grepExpression}");
             try
             {
-                if (this.SendAck(AckGrep, skyNetNode))
-                {
-                    TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
-                    server.Start();
+                TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
+                server.Start();
 
-                    this.Log($"Starting tcp connection to transmit grep results");
-                    using (TcpClient client = await server.AcceptTcpClientAsync().WithTimeout(TimeSpan.FromMilliseconds(1500)))
+                this.Log($"Starting tcp connection to transmit grep results");
+                using (TcpClient client = await server.AcceptTcpClientAsync().WithTimeout(TimeSpan.FromMilliseconds(1500)))
+                {
+                    using (NetworkStream stream = client.GetStream())
                     {
-                        using (NetworkStream stream = client.GetStream())
-                        {
-                            StreamWriter writer = new StreamWriter(stream);
+                        StreamWriter writer = new StreamWriter(stream);
 
-                            CmdResult result = CmdUtility.RunGrep(grepExpression, logFilePath);
-                            int length = result.Output.Length;
-                            writer.WriteLine(length);
-                            writer.WriteLine(result.OutputLines);
-                            writer.Write(result.Output);
-                            this.Log($"Transmitted grep results");
+                        CmdResult result = CmdUtility.RunGrep(grepExpression, logFilePath);
+                        int length = result.Output.Length;
+                        writer.WriteLine(length);
+                        writer.WriteLine(result.OutputLines);
+                        writer.Write(result.Output);
+                        this.Log($"Transmitted grep results");
 
-                            StreamReader reader = new StreamReader(stream);
-                            reader.ReadLine();
-                            this.Log($"Received acknowledgement of results.");
-                        }
+                        StreamReader reader = new StreamReader(stream);
+                        reader.ReadLine();
+                        this.Log($"Received acknowledgement of results.");
                     }
+                }
 
-                    this.Log("Processed grep request.");
-                    server.Stop();
-                }
-                else
-                {
-                    this.LogError("Grep request was dropped due to ack sending failure");
-                }
+                this.Log("Processed grep request.");
+                server.Stop();
             }
             catch (Exception e)
             {
@@ -217,10 +342,9 @@ namespace SkyNet20
 
             try
             {
-                using (UdpClient client = new UdpClient(SkyNetConfiguration.DefaultPort))
+                using (UdpClient client = new UdpClient())
                 {
                     byte[] grepPacket;
-                    IPEndPoint endPoint = skyNetNode.EndPoint;
 
                     using (MemoryStream stream = new MemoryStream())
                     {
@@ -235,22 +359,12 @@ namespace SkyNet20
                     }
 
                     this.Log("Sending grep packet.");
-                    await client.SendAsync(grepPacket, grepPacket.Length, endPoint).WithTimeout(TimeSpan.FromMilliseconds(1000));
-
-                    int ackRetries = 5;
-                    bool ackSuccess = false;
-                    while (!ackSuccess && ackRetries > 0)
-                    {
-                        this.Log("Waiting for grep request acknowledgement.");
-                        UdpReceiveResult result = await client.ReceiveAsync().WithTimeout(TimeSpan.FromMilliseconds(1000));
-                        ackSuccess = result.RemoteEndPoint == endPoint && result.Buffer.Length == 1 && result.Buffer[0] == AckGrep;
-
-                        ackRetries--;
-                    }
+                    await client.SendAsync(grepPacket, grepPacket.Length, skyNetNode.DefaultEndPoint).WithTimeout(TimeSpan.FromMilliseconds(1000));
 
                     using (TcpClient tcpClient = new TcpClient())
                     {
                         await tcpClient.ConnectAsync(skyNetNode.IPAddress, SkyNetConfiguration.DefaultPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                        this.Log($"Connected to {skyNetNode.HostName} for file transfer.");
 
                         using (NetworkStream stream = tcpClient.GetStream())
                         {
@@ -358,77 +472,41 @@ namespace SkyNet20
                 string machineId = packetHeader.MachineId;
                 this.Log($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
-                switch (packetHeader.PayloadType)
+                if (this.isConnected)
                 {
-                    case PayloadType.Grep:
-                        GrepCommand grepCommand = Serializer.DeserializeWithLengthPrefix<GrepCommand>(stream, PrefixStyle.Base128);
+                    switch (packetHeader.PayloadType)
+                    {
+                        case PayloadType.Grep:
+                            GrepCommand grepCommand = Serializer.DeserializeWithLengthPrefix<GrepCommand>(stream, PrefixStyle.Base128);
 
-                        Task.Run(() => ProcessGrepCommand(machineList[machineId], grepCommand.Query));
-                        break;
+                            Task.Run(() => ProcessGrepCommand(machineList[machineId], grepCommand.Query));
+                            break;
 
-                    case PayloadType.Heartbeat:
-                        HeartbeatCommand heartbeatCommand = Serializer.DeserializeWithLengthPrefix<HeartbeatCommand>(stream, PrefixStyle.Base128);
-                        //!TODO
-                        break;
+                        case PayloadType.Heartbeat:
+                            HeartbeatCommand heartbeatCommand = Serializer.DeserializeWithLengthPrefix<HeartbeatCommand>(stream, PrefixStyle.Base128);
+                            //!TODO
+                            break;
 
-                    case PayloadType.MembershipJoin:
-                        if (this.isIntroducer)
-                        {
-                            IPAddress introducerAddress = SkyNetNodeInfo.ParseMachineId(machineId).Item1;
-                            SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId, this.GetEndPoint(introducerAddress));
+                        case PayloadType.MembershipJoin:
+                            this.ProcessJoinCommand(machineId);
+                            break;
 
-                            if (!this.machineList.ContainsKey(machineId))
-                            {
-                                this.machineList.Add(joinedNode.MachineId, joinedNode);
-                                this.LogImportant($"{machineId} has joined.");
+                        case PayloadType.MembershipLeave:
+                            this.ProcessLeaveCommand(machineId);
+                            break;
 
-                                // !TODO : Need to send back membership list
-                                //this.SendMembershipCommand();
-                            }
-                            else
-                            {
-                                this.SendAck(AckJoinFailure, joinedNode);
-                                this.LogWarning($"Unexpected {machineId} attempted to rejoin the network.");
-                            }
-                        }
-                        else
-                        {
-                            this.LogWarning($"Not a coordinator, but received request to join.");
-                        }
-
-                        break;
-
-                    case PayloadType.MembershipLeave:
-                        if (this.isIntroducer)
-                        {
-                            if (machineList.ContainsKey(machineId))
-                            {
-                                machineList.Remove(machineId);
-
-                                this.LogImportant($"{machineId} has left.");
-                            }
-
-                            this.SendAck(AckLeave, machineList[machineId]);
-                        }
-                        else
-                        {
-                            this.LogWarning($"Not a coordinator, but received request to leave.");
-                        }
-                        break;
-
-                    case PayloadType.MembershipUpdate:
-                        MembershipUpdateCommand updateCommand = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
-                        this.MergeMembershipList(updateCommand.machineList);
-                        break;
+                        case PayloadType.MembershipUpdate:
+                            MembershipUpdateCommand updateCommand = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
+                            this.ProcessMembershipUpdateCommand(machineId, updateCommand);
+                            break;
+                    }
                 }
-
             }
         }
 
         public async Task ReceiveCommand()
         {
             UdpClient server = new UdpClient(SkyNetConfiguration.DefaultPort);
-            IPEndPoint groupEP = new IPEndPoint(IPAddress.Any, SkyNetConfiguration.DefaultPort);
 
             while (true)
             {
@@ -478,11 +556,25 @@ namespace SkyNet20
                                 break;
 
                             case 3:
-                                this.SendJoinCommand(this.GetIntroducer());
+                                bool joined = this.SendJoinCommand(this.GetIntroducer());
+
+                                if (joined)
+                                {
+                                    for (int i = 0; i < 10 && machineList.Count <= 1; i++)
+                                    {
+                                        await Task.Delay(200);
+                                    }
+
+                                    Console.WriteLine("Join was successful, but no membership list received after 2 seconds.");
+                                }
+
+                                await Task.Delay(TimeSpan.FromMilliseconds(200));
                                 break;
 
                             case 4:
                                 this.SendLeaveCommand(this.GetIntroducer());
+
+                                await Task.Delay(TimeSpan.FromMilliseconds(200));
                                 break;
 
                             default:
@@ -507,16 +599,12 @@ namespace SkyNet20
         /// </summary>
         public void Run()
         {
-            // Add self to membership list
-            SkyNetNodeInfo currentNode = new SkyNetNodeInfo(this.hostEntry.HostName, this.machineId, this.GetEndPoint(this.hostEntry.HostName));
-            machineList.Add(currentNode.MachineId, currentNode);
-
             //if (!this.isIntroducer)
             //{
             //    // Join the network
             //    var introducerHostName = SkyNetConfiguration.Machines.Where(kv => kv.Value.IsIntroducer == true).Select(kv => kv.Key).First();
             //    SkyNetNodeInfo introducer = new SkyNetNodeInfo(introducerHostName, this.GetIpAddress(introducerHostName).ToString(), this.GetEndPoint(introducerHostName));
-                
+
             //    while (!this.SendJoinCommand(introducer))
             //    {
             //        this.Log("Re-trying join command.");
@@ -527,6 +615,7 @@ namespace SkyNet20
             Task[] serverTasks = {
                 ReceiveCommand(),
                 PromptUser(),
+                DisseminateMembershipList(),
             };
 
             Task.WaitAll(serverTasks.ToArray());
@@ -540,7 +629,7 @@ namespace SkyNet20
             // Retrieve all known nodes from configuration
             foreach (var hostName in SkyNetConfiguration.HostNames)
             {
-                SkyNetNodeInfo nodeInfo = new SkyNetNodeInfo(hostName, this.GetIpAddress(hostName).ToString(), this.GetEndPoint(hostName));
+                SkyNetNodeInfo nodeInfo = new SkyNetNodeInfo(hostName, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(hostName)));
                 machineList.Add(hostName, nodeInfo);
             }
 
@@ -581,6 +670,7 @@ namespace SkyNet20
 
         public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
+            // Handle false-positive and updates regarding self
             var additions = listToMerge.Where(entry => !machineList.ContainsKey(entry.Key));
             var deletions = machineList.Where(entry => !listToMerge.ContainsKey(entry.Key));
             var updates = listToMerge.Where(entry => machineList.ContainsKey(entry.Key) && entry.Value.LastHeartbeat > machineList[entry.Key].LastHeartbeat);
@@ -588,7 +678,7 @@ namespace SkyNet20
             foreach (var addition in additions)
             {
                 IPAddress addressToAdd = SkyNetNodeInfo.ParseMachineId(addition.Key).Item1;
-                SkyNetNodeInfo nodeToAdd = new SkyNetNodeInfo(this.GetHostName(addressToAdd), addition.Key, this.GetEndPoint(addressToAdd))
+                SkyNetNodeInfo nodeToAdd = new SkyNetNodeInfo(this.GetHostName(addressToAdd), addition.Key)
                 {
                     LastHeartbeat = DateTime.UtcNow.Ticks
                 };
@@ -627,7 +717,7 @@ namespace SkyNet20
                 {
                     UdpClient client = new UdpClient();
                     byte[] ackPacket = { ackByte };
-                    client.Send(ackPacket, ackPacket.Length, nodeInfo.EndPoint);
+                    client.Send(ackPacket, ackPacket.Length, nodeInfo.DefaultEndPoint);
 
                     ackSuccessful = true;
                 }
@@ -656,7 +746,7 @@ namespace SkyNet20
         }
 
         private string GetHostName(IPAddress address)
-        {
+        {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
             if (this.localDnsCache.ContainsKey(address.ToString()))
             {
                 return this.localDnsCache[address.ToString()];
@@ -691,7 +781,7 @@ namespace SkyNet20
         {
             var introducerHostName = SkyNetConfiguration.Machines.Where(kv => kv.Value.IsIntroducer == true).Select(kv => kv.Key).First();
 
-            return new SkyNetNodeInfo(introducerHostName, this.GetIpAddress(introducerHostName).ToString(), this.GetEndPoint(introducerHostName));
+            return new SkyNetNodeInfo(introducerHostName, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(introducerHostName)));
         }
 
         public void LogWarning(string line)

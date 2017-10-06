@@ -12,21 +12,31 @@ namespace SkyNet20
     [ProtoContract]
     public class SkyNetNodeInfo
     {
-        public SkyNetNodeInfo(string hostName, string machineId, IPEndPoint endPoint)
+        public SkyNetNodeInfo(string hostName, string machineId)
         {
-            this.EndPoint = endPoint;
-            this.IPAddress = endPoint.Address;
             this.HostName = hostName;
             this.MachineId = machineId;
+            this.IPAddress = SkyNetNodeInfo.ParseMachineId(this.MachineId).Item1;
         }
 
-        public IPAddress IPAddress{ get; private set; }
-        public String HostName { get; private set; }
-        public IPEndPoint EndPoint { get; private set; }
+        public SkyNetNodeInfo()
+        {
+        }
+
+        public String HostName { get; set; }
         [ProtoMember(1)]
-        public string MachineId { get; private set; }
+        public string MachineId { get; set; }
         [ProtoMember(2)]
         public long LastHeartbeat { get; set; }
+        public IPAddress IPAddress { get; set; }
+
+        public IPEndPoint DefaultEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.DefaultPort);
+            }
+        }
 
 
         public static string GetMachineId(IPAddress address)

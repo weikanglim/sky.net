@@ -92,11 +92,11 @@ namespace SkyNet20
         /// <summary>
         /// Duration of a gossip round, in milliseconds.
         /// </summary>
-        public static long GossipRoundInterval
+        public static int GossipRoundInterval
         {
             get
             {
-                return Int64.Parse(ConfigurationManager.AppSettings["GossipRoundInterval"]);
+                return Int32.Parse(ConfigurationManager.AppSettings["GossipRoundInterval"]);
             }
         }
 
