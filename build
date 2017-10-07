@@ -32,4 +32,4 @@ dotnet build -o $outDir
 # Start new process
 echo "Starting server..."
 cd $outDir
-nohup dotnet SkyNet20.dll > skynet.out 2> skynet.err < /dev/null  &
+dotnet SkyNet20.dll
