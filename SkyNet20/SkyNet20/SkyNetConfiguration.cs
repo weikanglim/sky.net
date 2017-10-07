@@ -11,12 +11,6 @@ namespace SkyNet20
     /// </summary>
     public class SkyNetConfiguration
     {
-        public static long HeartBeatInterval {
-            get
-            {
-                return Convert.ToInt64(ConfigurationManager.AppSettings["HeartbeatInterval"]);
-            }
-        }
 
         /// <summary>
         /// Collection of machines in the connected SkyNet network.
@@ -86,6 +80,50 @@ namespace SkyNet20
             get
             {
                 return ConfigurationManager.AppSettings["LogPath"];
+            }
+        }
+
+        /// <summary>
+        /// Duration between each heartbeat, in milliseconds.
+        /// </summary>
+        public static int HeartbeatInterval
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["HeartbeatInterval"]);
+            }
+        }
+
+        /// <summary>
+        /// Number of heartbeat monitors that are predecessors.
+        /// </summary>
+        public static int HeartbeatPredecessors
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["HeartbeatPredecessors"]);
+            }
+        }
+
+        /// <summary>
+        /// Number of heartbeat monitors that are successors.
+        /// </summary>
+        public static int HeartbeatSuccessors
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["HeartbeatSuccessors"]);
+            }
+        }
+
+        /// <summary>
+        /// Number of milliseconds after which a machine is considered failed if a heartbeat has not yet been received.
+        /// </summary>
+        public static int HeartbeatTimeout
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["HeartbeatTimeout"]);
             }
         }
 

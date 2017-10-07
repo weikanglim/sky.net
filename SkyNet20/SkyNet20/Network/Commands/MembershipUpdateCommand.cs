@@ -9,6 +9,6 @@ namespace SkyNet20.Network.Commands
     public class MembershipUpdateCommand
     {
         [ProtoMember(1)]
-        public Dictionary<string, SkyNetNodeInfo> machineList;
+        public SortedList<string, SkyNetNodeInfo> machineList;
     }
 }

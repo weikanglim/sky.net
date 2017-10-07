@@ -6,6 +6,12 @@ using ProtoBuf;
 
 namespace SkyNet20
 {
+    public enum Status
+    {
+        Alive,
+        Failed,
+    };
+
     /// <summary>
     /// Stores information about a <see cref="SkyNetNode"/>.
     /// </summary>
@@ -17,6 +23,7 @@ namespace SkyNet20
             this.HostName = hostName;
             this.MachineId = machineId;
             this.IPAddress = SkyNetNodeInfo.ParseMachineId(this.MachineId).Item1;
+            this.Status = Status.Alive;
         }
 
         public SkyNetNodeInfo()
@@ -28,6 +35,9 @@ namespace SkyNet20
         public string MachineId { get; set; }
         [ProtoMember(2)]
         public long LastHeartbeat { get; set; }
+        [ProtoMember(3)]
+        public Status Status { get; set; }
+
         public IPAddress IPAddress { get; set; }
 
         public IPEndPoint DefaultEndPoint
