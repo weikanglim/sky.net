@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace SkyNet20.Utility
 {
@@ -22,6 +23,11 @@ namespace SkyNet20.Utility
         /// </returns>
         public static CmdResult RunCmd(string cmd)
         {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                throw new PlatformNotSupportedException("Bash commands not implemented on windows.");
+            }
+
             var escapedArgs = cmd.Replace("\"", "\\\"");
 
             var process = new Process()

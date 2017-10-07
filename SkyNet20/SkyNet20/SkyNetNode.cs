@@ -301,9 +301,10 @@ namespace SkyNet20
         private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
         {
             this.Log($"Received grep request: {grepExpression}");
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
+
             try
             {
-                TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
                 server.Start();
 
                 this.Log($"Starting tcp connection to transmit grep results");
@@ -313,25 +314,31 @@ namespace SkyNet20
                     {
                         StreamWriter writer = new StreamWriter(stream);
 
-                        CmdResult result = CmdUtility.RunGrep(grepExpression, logFilePath);
-                        int length = result.Output.Length;
-                        writer.WriteLine(length);
-                        writer.WriteLine(result.OutputLines);
-                        writer.Write(result.Output);
-                        this.Log($"Transmitted grep results");
-
-                        StreamReader reader = new StreamReader(stream);
-                        reader.ReadLine();
-                        this.Log($"Received acknowledgement of results.");
+                        try
+                        {
+                            CmdResult result = CmdUtility.RunGrep(grepExpression, logFilePath);
+                            int length = result.Output.Length;
+                            writer.WriteLine(length);
+                            writer.WriteLine(result.OutputLines);
+                            writer.Write(result.Output);
+                            this.Log($"Transmitted grep results");
+                        }
+                        catch (PlatformNotSupportedException)
+                        {
+                            this.Log("Skipping grep command on non-linux machine...", false);
+                        }
                     }
                 }
 
                 this.Log("Processed grep request.");
-                server.Stop();
             }
             catch (Exception e)
             {
                 this.LogError("Failure due to error: " + e.StackTrace);
+            }
+            finally
+            {
+                server.Stop();
             }
         }
 
@@ -359,6 +366,7 @@ namespace SkyNet20
 
                     this.Log("Sending grep packet.");
                     await client.SendAsync(grepPacket, grepPacket.Length, skyNetNode.DefaultEndPoint).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                    await Task.Delay(100);
 
                     using (TcpClient tcpClient = new TcpClient())
                     {
@@ -391,11 +399,6 @@ namespace SkyNet20
                             }
 
                             results = $"{skyNetNode.HostName} : {lineCount}";
-
-                            StreamWriter writer = new StreamWriter(stream);
-                            writer.WriteLine("EOT");
-
-                            this.Log($"Sending acknowledgement of results.");
                         }
                     }
                 }
@@ -537,6 +540,8 @@ namespace SkyNet20
                     Console.WriteLine("[2] Show machine id");
                     Console.WriteLine("[3] Join the group");
                     Console.WriteLine("[4] Leave the group");
+                    Console.WriteLine("[5] Query for log file");
+
                     string cmd = await ReadConsoleAsync();
 
                     if (Byte.TryParse(cmd, out byte option))
@@ -557,7 +562,7 @@ namespace SkyNet20
                             case 3:
                                 bool joined = this.SendJoinCommand(this.GetIntroducer());
 
-                                if (joined)
+                                if (joined && !this.isIntroducer)
                                 {
                                     // Wait for membership list to be sent
                                     for (int i = 0; i < 10 && machineList.Count <= 1; i++)
@@ -585,9 +590,41 @@ namespace SkyNet20
                                 }
                                 else
                                 {
-                                    Console.WriteLine("Unable to leave group, machine is not currently joined.");
+                                    Console.WriteLine("Unable to leave group, machine is not currently joined to group.");
                                 }
 
+                                break;
+
+                            case 5:
+                                if (this.isConnected)
+                                {
+                                    Console.Write("Grep expression:");
+                                    string grepExpression = await ReadConsoleAsync();
+
+                                    Stopwatch stopWatch = new Stopwatch();
+                                    stopWatch.Start();
+                                    var distributedGrep = this.DistributedGrep(grepExpression).ConfigureAwait(false).GetAwaiter().GetResult();
+                                    stopWatch.Stop();
+
+                                    Console.WriteLine($"Results in {stopWatch.ElapsedMilliseconds} ms.");
+                                    int totalLength = 0;
+                                    foreach (var line in distributedGrep)
+                                    {
+                                        Console.WriteLine(line);
+                                        int lineCount = 0;
+                                        string[] res = line.Split(":");
+                                        if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out lineCount))
+                                        {
+                                            totalLength += lineCount;
+                                        }
+                                    }
+
+                                    Console.WriteLine("Total: " + totalLength);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Unable to perform grep, machine is not currently joined to group.");
+                                }
                                 break;
 
                             default:
