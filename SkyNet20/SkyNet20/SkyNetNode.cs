@@ -16,12 +16,13 @@ using SkyNet20.Network;
 using SkyNet20.Network.Commands;
 using SkyNet20.Configuration;
 using SkyNet20.Extensions;
+using System.Collections.Concurrent;
 
 namespace SkyNet20
 {
     public class SkyNetNode
     {
-        private SortedList<string, SkyNetNodeInfo> machineList = new SortedList<string, SkyNetNodeInfo>();
+        private ConcurrentDictionary<string, SkyNetNodeInfo> machineList = new ConcurrentDictionary<string, SkyNetNodeInfo>(2, 10);
         private Dictionary<string, string> localDnsCache = new Dictionary<string, string>();
         private SkyNetNodeInfo[] knownIntroducers;
         private String machineId;
@@ -30,6 +31,13 @@ namespace SkyNet20
         private String logFilePath;
         private bool isIntroducer;
         private bool isConnected = false;
+        private IPAddress IPAddress
+        {
+            get
+            {
+                return this.GetIpAddress(this.hostEntry.HostName);
+            }
+        }
 
         /// <summary>
         /// Initializes the instance of <see cref="SkyNetNode"/> class.
@@ -117,7 +125,7 @@ namespace SkyNet20
 
 
                         // Wait for membership list to be sent
-                        for (int waitCount = 0; waitCount < 10 && machineList.Count < 1; waitCount++)
+                        for (int waitCount = 0; waitCount < 4 && machineList.Count < 1; waitCount++)
                         {
                             Thread.Sleep(200);
                         }
@@ -220,7 +228,7 @@ namespace SkyNet20
 
                 MembershipUpdateCommand membershipUpdate = new MembershipUpdateCommand
                 {
-                    machineList = this.machineList,
+                    machineList = new Dictionary<string, SkyNetNodeInfo>(this.machineList),
                 };
 
                 Serializer.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128);
@@ -256,7 +264,7 @@ namespace SkyNet20
 
         private bool SendHeartBeatCommand(SkyNetNodeInfo node)
         {
-            this.Log($"Sending heartbeat command to {node.HostName}.");
+            this.LogVerbose($"Sending heartbeat command to {node.HostName}.");
 
             bool heartbeatSent;
             byte[] heartbeat;
@@ -298,20 +306,20 @@ namespace SkyNet20
             return heartbeatSent;
         }
 
-        private void SendHeartBeats()
+        private void SendHeartBeats(SortedList<string, SkyNetNodeInfo> ringList)
         {
-            foreach (SkyNetNodeInfo predecessor in this.GetHeartbeatSuccessors())
+            foreach (SkyNetNodeInfo predecessor in this.GetHeartbeatSuccessors(ringList))
             {
                 SendHeartBeatCommand(predecessor);
             }
 
-            foreach (SkyNetNodeInfo sucessor in this.GetHeartbeatSuccessors())
+            foreach (SkyNetNodeInfo sucessor in this.GetHeartbeatSuccessors(ringList))
             {
                 SendHeartBeatCommand(sucessor);
             }
         }
 
-        private void DetectFailures()
+        private void DetectFailures(SortedList<string, SkyNetNodeInfo> ringList)
         {
             HashSet<string> failures = new HashSet<string>();
             // Update self's heartbeat
@@ -320,7 +328,7 @@ namespace SkyNet20
                 machineList[this.machineId].LastHeartbeat = DateTime.UtcNow.Ticks;
             }
 
-            foreach (var element in this.GetHeartbeatSuccessors())
+            foreach (var element in this.GetHeartbeatSuccessors(ringList))
             {
                 // Check for heartbeats exceeding timeout
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
@@ -331,7 +339,7 @@ namespace SkyNet20
                 }
             }
 
-            foreach (var element in this.GetHeartbeatPredecessors())
+            foreach (var element in this.GetHeartbeatPredecessors(ringList))
             {
                 // Check for heartbeats exceeding timeout
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
@@ -342,7 +350,6 @@ namespace SkyNet20
                 }
             }
 
-            // TODO: Concurrency, since this runs on a separate thread than ProcessCommands
             foreach (var failure in failures)
             {
                 this.LogImportant($"{machineId} has failed.");
@@ -350,14 +357,20 @@ namespace SkyNet20
             }
 
             // Membership pruning
+            HashSet<string> prunes = new HashSet<string>();
             foreach (var key in machineList.Keys)
             {
                 var element = machineList[key];
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
-                if (element.Status == Status.Failed && lastHeartbeat - DateTime.UtcNow > TimeSpan.FromSeconds(7))
+                if (element.Status == Status.Failed && DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(7))
                 {
-                    machineList.Remove(key);
+                    prunes.Add(element.MachineId);
                 }
+            }
+
+            foreach (var prune in prunes)
+            {
+                machineList.TryRemove(prune, out SkyNetNodeInfo value);
             }
         }
 
@@ -369,9 +382,10 @@ namespace SkyNet20
                 {
                     if (this.isConnected)
                     {
-                        this.DetectFailures();
+                        SortedList<string, SkyNetNodeInfo> ringList = new SortedList<string, SkyNetNodeInfo>(this.machineList);
+                        this.DetectFailures(ringList);
 
-                        this.SendHeartBeats();
+                        this.SendHeartBeats(ringList);
                     }
                 }
                 catch (Exception ex)
@@ -419,9 +433,9 @@ namespace SkyNet20
         {
             if (this.isIntroducer)
             {
-                if (machineList.ContainsKey(machineId))
+                if (machineList.TryGetValue(machineId, out SkyNetNodeInfo value))
                 {
-                    machineList[machineId].Status = Status.Failed;
+                    value.Status = Status.Failed;
 
                     this.LogImportant($"{machineId} has left.");
                 }
@@ -441,7 +455,7 @@ namespace SkyNet20
 
                 if (!this.machineList.ContainsKey(machineId))
                 {
-                    this.machineList.Add(joinedNode.MachineId, joinedNode);
+                    this.machineList.TryAdd(joinedNode.MachineId, joinedNode);
                     this.LogImportant($"{machineId} has joined.");
 
                     this.SendMembershipUpdateCommand(joinedNode);
@@ -470,7 +484,10 @@ namespace SkyNet20
                 return;
             }
 
-            this.machineList[machineId].LastHeartbeat = DateTime.UtcNow.Ticks;
+            if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo update))
+            {
+                update.LastHeartbeat = DateTime.UtcNow.Ticks;
+            }
         }
 
         private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
@@ -725,7 +742,7 @@ namespace SkyNet20
                             case 1:
                                 foreach (var keyValuePair in this.machineList.Where(kv => kv.Value.Status != Status.Failed))
                                 {
-                                    Console.WriteLine($"{keyValuePair.Key} (${keyValuePair.Value.HostName})");
+                                    Console.WriteLine($"{keyValuePair.Key} ({keyValuePair.Value.HostName})");
                                 }
                                 break;
 
@@ -734,19 +751,24 @@ namespace SkyNet20
                                 break;
 
                             case 3:
-                                bool joined = this.SendJoinCommand();
+                                if (!this.isConnected)
+                                {
+                                    bool joined = this.SendJoinCommand();
 
-                                // UI waits
-                                await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                    // UI waits
+                                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Unable to join, already connected to the group.");
+                                }
                                 break;
 
                             case 4:
                                 if (this.isConnected)
                                 {
                                     this.SendLeaveCommand();
-
-                                    // UI waits
-                                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                    Environment.Exit(0);
                                 }
                                 else
                                 {
@@ -771,9 +793,8 @@ namespace SkyNet20
                                     foreach (var line in distributedGrep)
                                     {
                                         Console.WriteLine(line);
-                                        int lineCount = 0;
                                         string[] res = line.Split(":");
-                                        if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out lineCount))
+                                        if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out int lineCount))
                                         {
                                             totalLength += lineCount;
                                         }
@@ -834,54 +855,7 @@ namespace SkyNet20
             Task.WaitAll(serverTasks.ToArray());
         }
 
-        /// <summary>
-        /// Runs the <see cref="SkyNetNode"/> in interactive mode, acts as a client for debugging purposes.
-        /// </summary>
-        public void RunInteractive()
-        {
-            // Retrieve all known nodes from configuration
-            foreach (var hostName in SkyNetConfiguration.HostNames)
-            {
-                SkyNetNodeInfo nodeInfo = new SkyNetNodeInfo(hostName, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(hostName)));
-                machineList.Add(hostName, nodeInfo);
-            }
-
-            while (true)
-            {
-                Console.WriteLine();
-                Console.Write("Query log files: ");
-                string cmd = Console.ReadLine();
-
-                if (cmd.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
-
-                string grepExp = cmd;
-                Stopwatch stopWatch = new Stopwatch();
-                stopWatch.Start();
-                var distributedGrep = this.DistributedGrep(grepExp).ConfigureAwait(false).GetAwaiter().GetResult();
-                stopWatch.Stop();
-
-                Console.WriteLine($"Results in {stopWatch.ElapsedMilliseconds} ms.");
-                int totalLength = 0;
-                foreach (var line in distributedGrep)
-                {
-                    Console.WriteLine(line);
-                    int lineCount = 0;
-                    string[] res = line.Split(":");
-                    if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out lineCount))
-                    {
-                        totalLength += lineCount;
-                    }
-                }
-
-                Console.WriteLine("Total: " + totalLength);
-            }
-
-        }
-
-        public void MergeMembershipList(SortedList<string, SkyNetNodeInfo> listToMerge)
+        public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
             // First, detect if self has failed.
             bool selfHasFailed = (listToMerge.ContainsKey(this.machineId) && listToMerge[this.machineId].Status == Status.Failed);
@@ -891,7 +865,7 @@ namespace SkyNet20
                 // Self was detected as false-positive removal, change state to be disconnected
                 this.isConnected = false;
                 this.machineList.Clear();
-                this.Log($"False-positive detection, voluntary left the group.");
+                this.LogImportant($"False-positive detection, voluntary left the group.");
                 return;
             }
 
@@ -904,40 +878,43 @@ namespace SkyNet20
                 IPAddress addressToAdd = SkyNetNodeInfo.ParseMachineId(addition.Key).Item1;
                 SkyNetNodeInfo nodeToAdd = new SkyNetNodeInfo(this.GetHostName(addressToAdd), addition.Key)
                 {
-                    LastHeartbeat = DateTime.UtcNow.Ticks
+                    LastHeartbeat = DateTime.UtcNow.Ticks,
+                    Status = addition.Value.Status
                 };
 
-                machineList.Add(nodeToAdd.MachineId, nodeToAdd);
+                machineList.GetOrAdd(nodeToAdd.MachineId, nodeToAdd);
 
-                this.Log($"Added {addition.Key} to membership list.");
+                this.LogVerbose($"Added {addition.Key} to membership list.");
             }
 
             foreach (var deletion in deletions)
             {
-                machineList.Remove(deletion.Key);
+                machineList.TryRemove(deletion.Key, out SkyNetNodeInfo value);
 
-                this.Log($"Removed {deletion.Key} from membership list.");
+                this.LogVerbose($"Removed {deletion.Key} from membership list.");
             }
 
             foreach (var update in updates)
             {
-                var incomingUpdate = update.Value;
-                var itemToUpdate = machineList[update.Key];
+                SkyNetNodeInfo incomingUpdate = update.Value;
 
-                if (itemToUpdate.Status == Status.Alive && incomingUpdate.Status == Status.Failed)
+                if (machineList.TryGetValue(update.Key, out SkyNetNodeInfo itemToUpdate))
                 {
-                    // First instance of failure
-                    itemToUpdate.Status = Status.Failed;
-                }
-                else if (itemToUpdate.Status == Status.Failed)
-                {
-                    // Items that are failed are considered immutable
-                    continue;
-                }
+                    if (itemToUpdate.Status == Status.Alive && incomingUpdate.Status == Status.Failed)
+                    {
+                        // First instance of failure
+                        itemToUpdate.Status = Status.Failed;
+                    }
+                    else if (itemToUpdate.Status == Status.Failed)
+                    {
+                        // Items that are failed are considered immutable
+                        continue;
+                    }
 
-                itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
+                    itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
-                this.Log($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
+                    this.LogVerbose($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
+                }
             }
         }
 
@@ -1017,6 +994,18 @@ namespace SkyNet20
         {
             var introducers = this.knownIntroducers;
 
+            for (int i = 0; i < introducers.Length; i++)
+            {
+                // If current machine is also an introducer, move to the last of the queue
+                if (introducers[i].IPAddress.Equals(this.IPAddress))
+                {
+                    var swap = introducers[i];
+                    introducers[i] = introducers[introducers.Length - 1];
+                    introducers[introducers.Length - 1] = swap;
+                    break;
+                }
+            }
+
             // !TODO : Filter out known failures
 
             return introducers;
@@ -1042,17 +1031,17 @@ namespace SkyNet20
             this.Log("[Verbose]" + line, false);
         }
 
-        private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node)
+        private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
         {
-            int nodeIndex = this.machineList.IndexOfKey(node.MachineId);
-            int sucessorIndex = (nodeIndex + 1) % this.machineList.Count;
+            int nodeIndex = sortedList.IndexOfKey(node.MachineId);
+            int sucessorIndex = (nodeIndex + 1) % sortedList.Count;
 
-            return this.machineList.ElementAt(sucessorIndex).Value;
+            return sortedList.ElementAt(sucessorIndex).Value;
         }
 
-        private SkyNetNodeInfo GetPredecessor(SkyNetNodeInfo node)
+        private SkyNetNodeInfo GetPredecessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
         {
-            int nodeIndex = this.machineList.IndexOfKey(node.MachineId);
+            int nodeIndex = sortedList.IndexOfKey(node.MachineId);
             int sucessorIndex = nodeIndex - 1;
 
             if (sucessorIndex < 0)
@@ -1060,21 +1049,21 @@ namespace SkyNet20
                 sucessorIndex = 0;
             }
 
-            return this.machineList.ElementAt(sucessorIndex).Value;
+            return sortedList.ElementAt(sucessorIndex).Value;
         }
 
-        private List<SkyNetNodeInfo> GetHeartbeatSuccessors()
+        private List<SkyNetNodeInfo> GetHeartbeatSuccessors(SortedList<string, SkyNetNodeInfo> sortedList)
         {
             List<SkyNetNodeInfo> heartbeatSucessors = new List<SkyNetNodeInfo>();
-            if (this.machineList.ContainsKey(this.machineId))
+            if (sortedList.ContainsKey(this.machineId))
             {
-                var currentSuccessor = this.machineList[this.machineId];
+                var currentSuccessor = sortedList[this.machineId];
 
                 for (int i = 0; i < SkyNetConfiguration.HeartbeatSuccessors; i++)
                 {
-                    currentSuccessor = this.GetSuccessor(currentSuccessor);
+                    currentSuccessor = this.GetSuccessor(currentSuccessor, sortedList);
 
-                    if (currentSuccessor.MachineId == this.machineId)
+                    if (currentSuccessor.IPAddress.Equals(this.IPAddress))
                     {
                         // This means we've looped around the ring, where number of members < number of monitor predecessors
                         break;
@@ -1087,18 +1076,18 @@ namespace SkyNet20
             return heartbeatSucessors;
         }
 
-        private List<SkyNetNodeInfo> GetHeartbeatPredecessors()
+        private List<SkyNetNodeInfo> GetHeartbeatPredecessors(SortedList<string, SkyNetNodeInfo> sortedList)
         {
             List<SkyNetNodeInfo> heartbeatPredecessors = new List<SkyNetNodeInfo>();
-            if (this.machineList.ContainsKey(this.machineId))
+            if (sortedList.ContainsKey(this.machineId))
             {
-                var currentPredecessor = this.machineList[this.machineId];
+                var currentPredecessor = sortedList[this.machineId];
 
                 for (int i = 0; i < SkyNetConfiguration.HeartbeatPredecessors; i++)
                 {
-                    currentPredecessor = this.GetPredecessor(currentPredecessor);
+                    currentPredecessor = this.GetPredecessor(currentPredecessor, sortedList);
 
-                    if (currentPredecessor.MachineId == this.machineId)
+                    if (currentPredecessor.IPAddress.Equals(this.IPAddress))
                     {
                         // This means we've looped around the ring, where number of members < number of monitor predecessors
                         break;
