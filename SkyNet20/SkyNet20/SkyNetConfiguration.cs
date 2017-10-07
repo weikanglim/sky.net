@@ -51,13 +51,24 @@ namespace SkyNet20
         }
 
         /// <summary>
-        /// The default listening server port for <see cref="SkyNetNode"/> instances.
+        /// The default port used by <see cref="SkyNetNode"/> instances.
         /// </summary>
         public static int DefaultPort
         {
             get
             {
                 return Convert.ToInt32(ConfigurationManager.AppSettings["DefaultPort"]);
+            }
+        }
+
+        /// <summary>
+        /// The default port used by <see cref="SkyNetNode"/> instances
+        /// </summary>
+        public static int SecondaryPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["SecondaryPort"]);
             }
         }
 

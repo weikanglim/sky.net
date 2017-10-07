@@ -17,6 +17,7 @@ using SkyNet20.Network.Commands;
 using SkyNet20.Configuration;
 using SkyNet20.Extensions;
 using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
 
 namespace SkyNet20
 {
@@ -31,6 +32,7 @@ namespace SkyNet20
         private String logFilePath;
         private bool isIntroducer;
         private bool isConnected = false;
+        private TcpListener grepListener;
         private IPAddress IPAddress
         {
             get
@@ -59,13 +61,25 @@ namespace SkyNet20
                 .Select(kv => new SkyNetNodeInfo(kv.Key, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(kv.Key)))).ToArray();
 
             string machineNumber = this.GetMachineNumber(this.hostEntry.HostName);
-            logFilePath = SkyNetConfiguration.LogPath
+            string logPath;
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Use bash to get back actual path
+                logPath = CmdUtility.RunCmd("echo " + SkyNetConfiguration.LogPath).Output;
+            }
+            else
+            {
+                logPath = SkyNetConfiguration.LogPath;
+            }
+
+            logFilePath = logPath
                 + Path.DirectorySeparatorChar
                 + $"vm.{machineNumber}.log";
-
-            if (!Directory.Exists(SkyNetConfiguration.LogPath))
+                
+            if (!Directory.Exists(logPath))
             {
-                Directory.CreateDirectory(SkyNetConfiguration.LogPath);
+                Directory.CreateDirectory(logPath);
             }
 
             logFileWriter = File.AppendText(logFilePath);
@@ -124,8 +138,8 @@ namespace SkyNet20
                         udpClient.Send(joinPacket, joinPacket.Length, introducer.DefaultEndPoint);
 
 
-                        // Wait for membership list to be sent
-                        for (int waitCount = 0; waitCount < 4 && machineList.Count < 1; waitCount++)
+                        // Wait for membership list to be received
+                        for (int waitCount = 0; waitCount < 2 && machineList.Count < 1; waitCount++)
                         {
                             Thread.Sleep(200);
                         }
@@ -178,7 +192,7 @@ namespace SkyNet20
 
             //!TODO: Maybe use predecessors/ successors & introducers?
             SkyNetNodeInfo[] introducers = this.GetIntroducers();
-            using (UdpClient udpClient = new UdpClient())
+            using (UdpClient udpClient = new UdpClient(SkyNetConfiguration.SecondaryPort))
             {
                 for (int i = 0; i < introducers.Length && !leaveSucessful; i++)
                 {
@@ -188,9 +202,12 @@ namespace SkyNet20
                     {
                         this.Log($"Sending leave command to {introducer.HostName}.");
 
-                        udpClient.Client.SendTimeout = 1000;
-                        udpClient.Client.ReceiveTimeout = 1000;
+                        udpClient.Client.SendTimeout = 200;
+                        udpClient.Client.ReceiveTimeout = 200;
                         udpClient.Send(leavePacket, leavePacket.Length, introducer.DefaultEndPoint);
+
+                        IPEndPoint receiveEndPoint = new IPEndPoint(introducer.IPAddress, SkyNetConfiguration.SecondaryPort);
+                        udpClient.Receive(ref receiveEndPoint);
 
                         this.machineList.Clear();
                         leaveSucessful = true;
@@ -323,9 +340,9 @@ namespace SkyNet20
         {
             HashSet<string> failures = new HashSet<string>();
             // Update self's heartbeat
-            if (machineList.ContainsKey(this.machineId))
+            if (machineList.TryGetValue(machineId, out SkyNetNodeInfo self))
             {
-                machineList[this.machineId].LastHeartbeat = DateTime.UtcNow.Ticks;
+                self.LastHeartbeat = DateTime.UtcNow.Ticks;
             }
 
             foreach (var element in this.GetHeartbeatSuccessors(ringList))
@@ -352,8 +369,11 @@ namespace SkyNet20
 
             foreach (var failure in failures)
             {
-                this.LogImportant($"{machineId} has failed.");
-                machineList[failure].Status = Status.Failed;
+                if (machineList.TryGetValue(failure, out SkyNetNodeInfo failedTarget))
+                {
+                    this.LogImportant($"{failedTarget.MachineId} ({failedTarget.HostName}) has failed.");
+                    failedTarget.Status = Status.Failed;
+                }
             }
 
             // Membership pruning
@@ -433,11 +453,33 @@ namespace SkyNet20
         {
             if (this.isIntroducer)
             {
-                if (machineList.TryGetValue(machineId, out SkyNetNodeInfo value))
+                if (machineList.TryGetValue(machineId, out SkyNetNodeInfo leftNode))
                 {
-                    value.Status = Status.Failed;
+                    leftNode.Status = Status.Failed;
 
                     this.LogImportant($"{machineId} has left.");
+
+                    try
+                    {
+                        UdpClient client = new UdpClient();
+                        byte[] ackPacket;
+
+                        SkyNetPacketHeader header = new SkyNetPacketHeader
+                        {
+                            MachineId = this.machineId,
+                            PayloadType = PayloadType.MembershipLeaveAck
+                        };
+
+                        using (MemoryStream stream = new MemoryStream())
+                        {
+                            Serializer.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128);
+                            ackPacket = stream.ToArray();
+                        }
+                        client.Send(ackPacket, ackPacket.Length, new IPEndPoint(leftNode.IPAddress, SkyNetConfiguration.SecondaryPort));
+                    }
+                    catch (Exception)
+                    {
+                    }
                 }
             }
             else
@@ -451,7 +493,10 @@ namespace SkyNet20
             if (this.isIntroducer)
             {
                 IPAddress introducerAddress = SkyNetNodeInfo.ParseMachineId(machineId).Item1;
-                SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId);
+                SkyNetNodeInfo joinedNode = new SkyNetNodeInfo(this.GetHostName(introducerAddress), machineId)
+                {
+                    LastHeartbeat = DateTime.UtcNow.Ticks,
+                };
 
                 if (!this.machineList.ContainsKey(machineId))
                 {
@@ -492,15 +537,11 @@ namespace SkyNet20
 
         private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
         {
-            this.Log($"Received grep request: {grepExpression}");
-            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
+            this.LogVerbose($"Received grep request: {grepExpression}");
 
             try
             {
-                server.Start();
-
-                this.Log($"Starting tcp connection to transmit grep results");
-                using (TcpClient client = await server.AcceptTcpClientAsync().WithTimeout(TimeSpan.FromMilliseconds(1500)))
+                using (TcpClient client = await grepListener.AcceptTcpClientAsync().WithTimeout(TimeSpan.FromMilliseconds(1500)))
                 {
                     using (NetworkStream stream = client.GetStream())
                     {
@@ -513,24 +554,19 @@ namespace SkyNet20
                             writer.WriteLine(length);
                             writer.WriteLine(result.OutputLines);
                             writer.Write(result.Output);
-                            this.Log($"Transmitted grep results");
                         }
                         catch (PlatformNotSupportedException)
                         {
-                            this.Log("Skipping grep command on non-linux machine...", false);
+                            this.LogVerbose("Skipping grep command on non-linux machine...");
                         }
                     }
                 }
 
-                this.Log("Processed grep request.");
+                this.LogVerbose("Processed grep request.");
             }
             catch (Exception e)
             {
                 this.LogError("Failure due to error: " + e.StackTrace);
-            }
-            finally
-            {
-                server.Stop();
             }
         }
 
@@ -555,15 +591,14 @@ namespace SkyNet20
 
                         grepPacket = stream.ToArray();
                     }
-
-                    this.Log("Sending grep packet.");
+                    
                     await client.SendAsync(grepPacket, grepPacket.Length, skyNetNode.DefaultEndPoint).WithTimeout(TimeSpan.FromMilliseconds(1000));
                     await Task.Delay(100);
 
                     using (TcpClient tcpClient = new TcpClient())
                     {
                         await tcpClient.ConnectAsync(skyNetNode.IPAddress, SkyNetConfiguration.DefaultPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
-                        this.Log($"Connected to {skyNetNode.HostName} for file transfer.");
+                        this.LogVerbose($"Connected to {skyNetNode.HostName} for file transfer.");
 
                         using (NetworkStream stream = tcpClient.GetStream())
                         {
@@ -586,7 +621,7 @@ namespace SkyNet20
                             }
                             catch (IOException e)
                             {
-                                this.Log("ERROR: Unable to write file " + grepLogFile);
+                                this.LogError("ERROR: Unable to write file " + grepLogFile);
                                 Debugger.Log((int)TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
                             }
 
@@ -768,6 +803,8 @@ namespace SkyNet20
                                 if (this.isConnected)
                                 {
                                     this.SendLeaveCommand();
+
+                                    grepListener.Stop();
                                     Environment.Exit(0);
                                 }
                                 else
@@ -843,6 +880,8 @@ namespace SkyNet20
             //        Thread.Sleep(1000);
             //    }
             //}
+            grepListener = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
+            grepListener.Start();
 
             Task[] serverTasks = {
                 ReceiveCommand(),
@@ -882,7 +921,12 @@ namespace SkyNet20
                     Status = addition.Value.Status
                 };
 
-                machineList.GetOrAdd(nodeToAdd.MachineId, nodeToAdd);
+                machineList.AddOrUpdate(nodeToAdd.MachineId, nodeToAdd, (key, oldValue) =>
+                {
+                    oldValue.LastHeartbeat = DateTime.UtcNow.Ticks;
+                    oldValue.Status = addition.Value.Status;
+                    return oldValue;
+                });
 
                 this.LogVerbose($"Added {addition.Key} to membership list.");
             }
@@ -916,41 +960,6 @@ namespace SkyNet20
                     this.LogVerbose($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
                 }
             }
-        }
-
-        private bool SendAck(byte ackByte, SkyNetNodeInfo nodeInfo)
-        {
-            this.Log($"Sending ack {ackByte.ToString("x")} to {nodeInfo.MachineId} ({nodeInfo.HostName})");
-            bool ackSuccessful = false;
-            int numRetries = 3;
-
-            while (!ackSuccessful && numRetries > 0)
-            {
-                try
-                {
-                    UdpClient client = new UdpClient();
-                    byte[] ackPacket = { ackByte };
-                    client.Send(ackPacket, ackPacket.Length, nodeInfo.DefaultEndPoint);
-
-                    ackSuccessful = true;
-                }
-                catch (Exception e)
-                {
-                    ackSuccessful = false;
-                    numRetries++;
-
-                    if (numRetries > 0)
-                    {
-                        this.Log("Retrying send ack...");
-                    }
-                    else
-                    {
-                        this.Log($"Sending ack failed after {numRetries} due to exception ({e.Message}): " + e.StackTrace);
-                    }
-                }
-            }
-
-            return ackSuccessful;
         }
 
         private Task<string> ReadConsoleAsync()
@@ -1018,7 +1027,7 @@ namespace SkyNet20
 
         private void LogError(string line)
         {
-            this.Log("[Error] " + line);
+            this.Log("[Error] " + line, false);
         }
 
         private void LogImportant(string line)

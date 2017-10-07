@@ -64,12 +64,10 @@ namespace SkyNet20.Utility
             };
 
             process.Start();
-            Console.WriteLine($"Running command: {process.StartInfo.FileName} {process.StartInfo.Arguments}");
 
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             process.WaitForExit();
-            Console.WriteLine("Exited with error code " + process.ExitCode);
             process.CancelOutputRead();
             process.CancelErrorRead();
 

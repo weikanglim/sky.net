@@ -12,6 +12,7 @@ namespace SkyNet20.Network
         MembershipUpdate,
         MembershipJoin,
         MembershipLeave,
+        MembershipLeaveAck,
     }
 
     [ProtoContract]
