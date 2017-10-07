@@ -81,7 +81,6 @@ namespace SkyNet20
         private bool SendJoinCommand(SkyNetNodeInfo introducer)
         {
             this.machineId = SkyNetNodeInfo.GetMachineId(SkyNetNodeInfo.ParseMachineId(this.machineId).Item1);
-            this.machineList.Add(this.machineId, new SkyNetNodeInfo(this.hostEntry.HostName, this.machineId));
             this.Log($"Updated machine id to {this.machineId}");
 
             this.Log($"Sending join command to {introducer.HostName}.");
@@ -171,7 +170,7 @@ namespace SkyNet20
 
         private bool SendMembershipUpdateCommand(SkyNetNodeInfo node)
         {
-            this.Log($"Sending membership list update command to {node.HostName}.");
+            this.LogVerbose($"Sending membership list update command to {node.HostName}.");
 
             bool membershipSent;
             byte[] membershipListPacket;
@@ -470,7 +469,7 @@ namespace SkyNet20
             {
                 SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(stream, PrefixStyle.Base128);
                 string machineId = packetHeader.MachineId;
-                this.Log($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
                 if (this.isConnected)
                 {
@@ -510,7 +509,7 @@ namespace SkyNet20
 
             while (true)
             {
-                this.Log($"Waiting for a connection on port {((IPEndPoint)server.Client.LocalEndPoint).Port}... ");
+                this.LogVerbose($"Waiting for a connection on port {((IPEndPoint)server.Client.LocalEndPoint).Port}... ");
 
                 try
                 {
@@ -566,7 +565,10 @@ namespace SkyNet20
                                         await Task.Delay(200);
                                     }
 
-                                    Console.WriteLine("Join was successful, but no membership list received after 2 seconds.");
+                                    if (machineList.Count <= 1)
+                                    {
+                                        Console.WriteLine("Join was successful, but no membership list received after 2 seconds.");
+                                    }
                                 }
 
                                 // UI waits
@@ -574,10 +576,18 @@ namespace SkyNet20
                                 break;
 
                             case 4:
-                                this.SendLeaveCommand(this.GetIntroducer());
+                                if (this.isConnected)
+                                {
+                                    this.SendLeaveCommand(this.GetIntroducer());
 
-                                // UI waits
-                                await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                    // UI waits
+                                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Unable to leave group, machine is not currently joined.");
+                                }
+
                                 break;
 
                             default:
@@ -617,9 +627,9 @@ namespace SkyNet20
             //}
 
             Task[] serverTasks = {
-                ReceiveCommand(), //!TODO: This needs to be a single loop of receive -> send
+                ReceiveCommand(),
                 PromptUser(),
-                //DisseminateMembershipList(),
+                DisseminateMembershipList(),
             };
 
             Task.WaitAll(serverTasks.ToArray());
@@ -677,7 +687,7 @@ namespace SkyNet20
             // Handle false-positive and updates regarding self
             var additions = listToMerge.Where(entry => !machineList.ContainsKey(entry.Key));
             var deletions = machineList.Where(entry => !listToMerge.ContainsKey(entry.Key));
-            var updates = listToMerge.Where(entry => machineList.ContainsKey(entry.Key) && entry.Value.LastHeartbeat > machineList[entry.Key].LastHeartbeat);
+            //var updates = listToMerge.Where(entry => machineList.ContainsKey(entry.Key) && entry.Value.LastHeartbeat > machineList[entry.Key].LastHeartbeat);
 
             foreach (var addition in additions)
             {
@@ -689,24 +699,33 @@ namespace SkyNet20
 
                 machineList.Add(nodeToAdd.MachineId, nodeToAdd);
 
-                this.LogImportant($"Added {addition.Key} to membership list.");
+                this.Log($"Added {addition.Key} to membership list.");
             }
 
             foreach (var deletion in deletions)
             {
                 machineList.Remove(deletion.Key);
 
-                this.LogImportant($"Removed {deletion.Key} from membership list.");
+                this.Log($"Removed {deletion.Key} from membership list.");
+
+                if (deletion.Key == this.machineId)
+                {
+                    // Self was detected as false-positive removal, change state to be disconnected
+                    this.isConnected = false;
+                    this.machineList.Clear();
+                    this.Log($"Disconnected from group.");
+                    return;
+                }
             }
 
-            foreach (var update in updates)
-            {
-                var itemToUpdate = machineList[update.Key];
+            //foreach (var update in updates)
+            //{
+            //    var itemToUpdate = machineList[update.Key];
 
-                itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
+            //    itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
-                this.LogImportant($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
-            }
+            //    this.Log($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
+            //}
         }
 
         private bool SendAck(byte ackByte, SkyNetNodeInfo nodeInfo)
@@ -788,29 +807,39 @@ namespace SkyNet20
             return new SkyNetNodeInfo(introducerHostName, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(introducerHostName)));
         }
 
-        public void LogWarning(string line)
+        private void LogWarning(string line)
         {
             this.Log("[Warning] " + line);
         }
 
-        public void LogError(string line)
+        private void LogError(string line)
         {
             this.Log("[Error] " + line);
         }
 
-        public void LogImportant(string line)
+        private void LogImportant(string line)
         {
             this.Log("[Important] " + line);
+        }
+
+        private void LogVerbose(string line)
+        {
+            this.Log("[Verbose]" + line, false);
         }
 
         /// <summary>
         /// Logs the given string to file and console.
         /// </summary>
         /// <param name="line"></param>
-        public void Log(string line)
+        private void Log(string line, bool writeToConsole = true)
         {
             string timestampedLog = $"{DateTime.UtcNow} : {line}";
-            Console.WriteLine(timestampedLog);
+
+            if (writeToConsole)
+            {
+                Console.WriteLine(timestampedLog);
+            }
+
             logFileWriter.WriteLine(timestampedLog);
         }
     }
