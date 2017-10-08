@@ -1,0 +1,6 @@
+#!/bin/bash
+git fetch -vvv
+git checkout experiments
+git pull
+
+./build
