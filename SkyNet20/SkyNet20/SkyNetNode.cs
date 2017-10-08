@@ -542,6 +542,7 @@ namespace SkyNet20
             if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo update))
             {
                 update.LastHeartbeat = DateTime.UtcNow.Ticks;
+                update.HeartbeatCounter = update.HeartbeatCounter + 1;
             }
 
             this.ProcessMembershipUpdateCommand(machineId, updateCommand);
@@ -923,7 +924,7 @@ namespace SkyNet20
 
             var additions = listToMerge.Where(entry => !machineList.ContainsKey(entry.Key));
             var deletions = machineList.Where(entry => !listToMerge.ContainsKey(entry.Key));
-            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.ContainsKey(entry.Key) && entry.Value.LastHeartbeat > machineList[entry.Key].LastHeartbeat);
+            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.ContainsKey(entry.Key) && entry.Value.HeartbeatCounter > machineList[entry.Key].HeartbeatCounter);
 
             foreach (var addition in additions)
             {
@@ -968,6 +969,7 @@ namespace SkyNet20
                         continue;
                     }
 
+                    itemToUpdate.HeartbeatCounter = incomingUpdate.HeartbeatCounter;
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
                     this.LogVerbose($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");

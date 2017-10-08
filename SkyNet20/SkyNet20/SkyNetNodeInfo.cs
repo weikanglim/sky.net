@@ -37,6 +37,8 @@ namespace SkyNet20
         public long LastHeartbeat { get; set; }
         [ProtoMember(3)]
         public Status Status { get; set; }
+        [ProtoMember(4)]
+        public long HeartbeatCounter { get; set; }
 
         public IPAddress IPAddress { get; set; }
 
