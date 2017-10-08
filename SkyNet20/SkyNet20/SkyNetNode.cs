@@ -730,7 +730,7 @@ namespace SkyNet20
         public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
             // First, detect if self has failed.
-            bool selfHasFailed = (listToMerge.ContainsKey(this.machineId) && listToMerge[this.machineId].Status == Status.Failed);
+            bool selfHasFailed = (listToMerge.ContainsKey(this.machineId) && listToMerge[this.machineId] != null && listToMerge[this.machineId].Status == Status.Failed);
 
             if (selfHasFailed)
             {
@@ -743,7 +743,7 @@ namespace SkyNet20
 
             var additions = listToMerge.Where(entry => !machineList.ContainsKey(entry.Key));
             var deletions = machineList.Where(entry => !listToMerge.ContainsKey(entry.Key));
-            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.ContainsKey(entry.Key) && entry.Value.HeartbeatCounter > machineList[entry.Key].HeartbeatCounter);
+            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.TryGetValue(entry.Key, out SkyNetNodeInfo existing) && entry.Value.HeartbeatCounter > existing.HeartbeatCounter);
 
             foreach (var addition in additions)
             {
