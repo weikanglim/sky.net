@@ -67,6 +67,7 @@ namespace SkyNet20
             {
                 // Use bash to get back actual path
                 logPath = CmdUtility.RunCmd("echo " + SkyNetConfiguration.LogPath).Output;
+                logPath = logPath.TrimEnd('\n');
             }
             else
             {
