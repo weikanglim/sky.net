@@ -32,7 +32,6 @@ namespace SkyNet20
         private String logFilePath;
         private bool isIntroducer;
         private bool isConnected = false;
-        private TcpListener grepListener;
         private IPAddress IPAddress
         {
             get
@@ -389,6 +388,7 @@ namespace SkyNet20
             foreach (var key in machineList.Keys)
             {
                 var element = machineList[key];
+                
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
                 if (element.Status == Status.Failed && DateTime.UtcNow - lastHeartbeat > TimeSpan.FromSeconds(7))
                 {
@@ -548,164 +548,6 @@ namespace SkyNet20
             this.ProcessMembershipUpdateCommand(machineId, updateCommand);
         }
 
-        private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
-        {
-            this.LogVerbose($"Received grep request: {grepExpression}");
-
-            try
-            {
-                using (TcpClient client = await grepListener.AcceptTcpClientAsync().WithTimeout(TimeSpan.FromMilliseconds(1500)))
-                {
-                    using (NetworkStream stream = client.GetStream())
-                    {
-                        StreamWriter writer = new StreamWriter(stream);
-
-                        try
-                        {
-                            CmdResult result = CmdUtility.RunGrep(grepExpression, logFilePath);
-                            int length = result.Output.Length;
-                            writer.WriteLine(length);
-                            writer.WriteLine(result.OutputLines);
-                            writer.Write(result.Output);
-                        }
-                        catch (PlatformNotSupportedException)
-                        {
-                            this.LogVerbose("Skipping grep command on non-linux machine...");
-                        }
-                    }
-                }
-
-                this.LogVerbose("Processed grep request.");
-            }
-            catch (Exception e)
-            {
-                this.LogError("Failure due to error: " + e.StackTrace);
-            }
-        }
-
-        private async Task<string> SendGrepCommand(string grepExpression, SkyNetNodeInfo skyNetNode)
-        {
-            string results = "";
-
-            try
-            {
-                using (UdpClient client = new UdpClient())
-                {
-                    byte[] grepPacket;
-
-                    using (MemoryStream stream = new MemoryStream())
-                    {
-                        // Send grep
-                        SkyNetPacketHeader packetHeader = new SkyNetPacketHeader { PayloadType = PayloadType.Grep, MachineId = machineId };
-                        GrepCommand grepCommand = new GrepCommand { Query = grepExpression };
-
-                        Serializer.SerializeWithLengthPrefix(stream, packetHeader, PrefixStyle.Base128);
-                        Serializer.SerializeWithLengthPrefix(stream, grepCommand, PrefixStyle.Base128);
-
-                        grepPacket = stream.ToArray();
-                    }
-                    
-                    await client.SendAsync(grepPacket, grepPacket.Length, skyNetNode.DefaultEndPoint).WithTimeout(TimeSpan.FromMilliseconds(1000));
-                    await Task.Delay(100);
-
-                    using (TcpClient tcpClient = new TcpClient())
-                    {
-                        await tcpClient.ConnectAsync(skyNetNode.IPAddress, SkyNetConfiguration.DefaultPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
-                        this.LogVerbose($"Connected to {skyNetNode.HostName} for file transfer.");
-
-                        using (NetworkStream stream = tcpClient.GetStream())
-                        {
-                            // Process grep
-                            StreamReader reader = new StreamReader(stream);
-
-                            int packetLength = Convert.ToInt32(await reader.ReadLineAsync());
-                            int lineCount = Convert.ToInt32(await reader.ReadLineAsync()); ;
-                            string grepLogFile = $"vm.{this.GetMachineNumber(skyNetNode.HostName)}.log";
-
-                            try
-                            {
-                                char[] buffer = new char[packetLength];
-                                await reader.ReadAsync(buffer, 0, buffer.Length);
-
-                                using (StreamWriter fileWriter = File.AppendText(grepLogFile))
-                                {
-                                    await fileWriter.WriteAsync(buffer);
-                                }
-                            }
-                            catch (IOException e)
-                            {
-                                this.LogError("ERROR: Unable to write file " + grepLogFile);
-                                Debugger.Log((int)TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
-                            }
-
-                            results = $"{skyNetNode.HostName} : {lineCount}";
-                        }
-                    }
-                }
-            }
-            catch (SocketException)
-            {
-                results = $"No response from {skyNetNode.HostName}";
-            }
-            catch (IOException)
-            {
-                results = $"No response from {skyNetNode.HostName}";
-            }
-            catch (AggregateException ae)
-            {
-                if (ae.InnerException is SocketException)
-                {
-                    results = $"No response from {skyNetNode.HostName}";
-                }
-                else
-                {
-                    results = "Unhandled exception " + ae.InnerException.Message;
-                    Debugger.Log((int)TraceLevel.Error, Debugger.DefaultCategory, ae.ToString());
-                }
-            }
-            catch (Exception e)
-            {
-                results = "Unhandled exception " + e.InnerException.Message;
-                Debugger.Log((int) TraceLevel.Error, Debugger.DefaultCategory, e.ToString());
-            }
-
-            return results;
-        }
-
-        /// <summary>
-        /// Runs a distributed grep command to all connected nodes.
-        /// </summary>
-        /// <param name="grepExp">
-        /// A valid regular expression for GNU grep.
-        /// </param>
-        /// <returns>
-        /// The distributed grep results.
-        /// </returns>
-        public async Task<List<String>> DistributedGrep(string grepExp)
-        {
-            var results = new List<String>();
-            var tasks = new List<Task<String>>();
-
-            foreach (var netNodeInfo in machineList.Values)
-            {
-                tasks.Add(SendGrepCommand(grepExp, netNodeInfo));
-            }
-
-            while (tasks.Count > 0)
-            {
-                Task<string> finishedtask = await Task.WhenAny(tasks);
-
-                tasks.Remove(finishedtask);
-
-                if (finishedtask.IsCompletedSuccessfully)
-                {
-                    results.Add(finishedtask.Result);
-                }
-            }
-
-            return results;
-        }
-
         public void HandleCommand(byte[] payload)
         {
             using (MemoryStream stream = new MemoryStream(payload))
@@ -718,12 +560,6 @@ namespace SkyNet20
                 {
                     switch (packetHeader.PayloadType)
                     {
-                        case PayloadType.Grep:
-                            GrepCommand grepCommand = Serializer.DeserializeWithLengthPrefix<GrepCommand>(stream, PrefixStyle.Base128);
-
-                            Task.Run(() => ProcessGrepCommand(machineList[machineId], grepCommand.Query));
-                            break;
-
                         case PayloadType.Heartbeat:
                             MembershipUpdateCommand heartbeatMembershipUpdate = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
                             this.ProcessHeartbeatCommand(machineId, heartbeatMembershipUpdate);
@@ -780,7 +616,6 @@ namespace SkyNet20
                     Console.WriteLine("[2] Show machine id");
                     Console.WriteLine("[3] Join the group");
                     Console.WriteLine("[4] Leave the group");
-                    Console.WriteLine("[5] Query for log file");
 
                     string cmd = await ReadConsoleAsync();
 
@@ -818,7 +653,6 @@ namespace SkyNet20
                                 {
                                     this.SendLeaveCommand();
 
-                                    grepListener.Stop();
                                     Environment.Exit(0);
                                 }
                                 else
@@ -826,37 +660,6 @@ namespace SkyNet20
                                     Console.WriteLine("Unable to leave group, machine is not currently joined to group.");
                                 }
 
-                                break;
-
-                            case 5:
-                                if (this.isConnected)
-                                {
-                                    Console.Write("Grep expression:");
-                                    string grepExpression = await ReadConsoleAsync();
-
-                                    Stopwatch stopWatch = new Stopwatch();
-                                    stopWatch.Start();
-                                    var distributedGrep = this.DistributedGrep(grepExpression).ConfigureAwait(false).GetAwaiter().GetResult();
-                                    stopWatch.Stop();
-
-                                    Console.WriteLine($"Results in {stopWatch.ElapsedMilliseconds} ms.");
-                                    int totalLength = 0;
-                                    foreach (var line in distributedGrep)
-                                    {
-                                        Console.WriteLine(line);
-                                        string[] res = line.Split(":");
-                                        if (res.Length >= 2 && Int32.TryParse(res[1].Trim(), out int lineCount))
-                                        {
-                                            totalLength += lineCount;
-                                        }
-                                    }
-
-                                    Console.WriteLine("Total: " + totalLength);
-                                }
-                                else
-                                {
-                                    Console.WriteLine("Unable to perform grep, machine is not currently joined to group.");
-                                }
                                 break;
 
                             default:
@@ -894,8 +697,6 @@ namespace SkyNet20
             //        Thread.Sleep(1000);
             //    }
             //}
-            grepListener = new TcpListener(IPAddress.Any, SkyNetConfiguration.DefaultPort);
-            grepListener.Start();
 
             Task[] serverTasks = {
                 ReceiveCommand(),
@@ -969,7 +770,7 @@ namespace SkyNet20
                         continue;
                     }
 
-                    itemToUpdate.HeartbeatCounter = incomingUpdate.HeartbeatCounter;
+                    itemToUpdate.HeartbeatCounter = itemToUpdate.HeartbeatCounter + 1;
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
                     this.LogVerbose($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
