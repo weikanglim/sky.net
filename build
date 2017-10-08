@@ -16,15 +16,6 @@ if [ ! -d $logDir ]; then
 	mkdir $logDir
 fi
 
-# Terminate existing process
-PID=`pgrep "dotnet"`
-
-if [[ "" != $PID ]]
-then
-	echo "Stopping server..."
-	kill -9 $PID
-fi
-
 # Build
 cd $buildDir
 dotnet build -o $outDir
