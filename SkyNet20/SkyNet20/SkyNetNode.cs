@@ -410,7 +410,12 @@ namespace SkyNet20
                 {
                     if (this.isConnected)
                     {
-                        SortedList<string, SkyNetNodeInfo> ringList = new SortedList<string, SkyNetNodeInfo>(this.machineList);
+                        SortedList<string, SkyNetNodeInfo> ringList = new SortedList<string, SkyNetNodeInfo>();
+                        foreach (var kvp in this.machineList.Where(kv => kv.Value.Status == Status.Alive))
+                        {
+                            ringList.Add(kvp.Key, kvp.Value);
+                        }
+
                         var successors = this.GetHeartbeatSuccessors(ringList);
                         var predecessors = this.GetHeartbeatPredecessors(ringList);
 
@@ -570,29 +575,26 @@ namespace SkyNet20
                 SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(stream, PrefixStyle.Base128);
                 string machineId = packetHeader.MachineId;
                 this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
-
-                if (this.isConnected)
+                
+                switch (packetHeader.PayloadType)
                 {
-                    switch (packetHeader.PayloadType)
-                    {
-                        case PayloadType.Heartbeat:
-                            MembershipUpdateCommand heartbeatMembershipUpdate = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
-                            this.ProcessHeartbeatCommand(machineId, heartbeatMembershipUpdate);
-                            break;
+                    case PayloadType.Heartbeat:
+                        MembershipUpdateCommand heartbeatMembershipUpdate = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
+                        this.ProcessHeartbeatCommand(machineId, heartbeatMembershipUpdate);
+                        break;
 
-                        case PayloadType.MembershipJoin:
-                            this.ProcessJoinCommand(machineId);
-                            break;
+                    case PayloadType.MembershipJoin:
+                        this.ProcessJoinCommand(machineId);
+                        break;
 
-                        case PayloadType.MembershipLeave:
-                            this.ProcessLeaveCommand(machineId);
-                            break;
+                    case PayloadType.MembershipLeave:
+                        this.ProcessLeaveCommand(machineId);
+                        break;
 
-                        case PayloadType.MembershipUpdate:
-                            MembershipUpdateCommand updateCommand = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
-                            this.ProcessMembershipUpdateCommand(machineId, updateCommand);
-                            break;
-                    }
+                    case PayloadType.MembershipUpdate:
+                        MembershipUpdateCommand updateCommand = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
+                        this.ProcessMembershipUpdateCommand(machineId, updateCommand);
+                        break;
                 }
             }
         }
@@ -603,14 +605,15 @@ namespace SkyNet20
 
             while (true)
             {
-                this.LogVerbose($"Waiting for a connection on port {((IPEndPoint)server.Client.LocalEndPoint).Port}... ");
-
                 try
                 {
                     UdpReceiveResult result = await server.ReceiveAsync();
-                    byte[] received = result.Buffer;
+                    if (this.isConnected)
+                    {
+                        byte[] received = result.Buffer;
 
-                    this.HandleCommand(received);
+                        this.HandleCommand(received);
+                    }
                 }
                 catch (Exception e)
                 {
@@ -758,14 +761,14 @@ namespace SkyNet20
                     return oldValue;
                 });
 
-                this.LogVerbose($"Added {addition.Key} to membership list.");
+                this.LogVerbose($"Added {addition.Key} ({addition.Value.HostName}) to membership list.");
             }
 
             foreach (var deletion in deletions)
             {
                 machineList.TryRemove(deletion.Key, out SkyNetNodeInfo value);
 
-                this.LogVerbose($"Removed {deletion.Key} from membership list.");
+                this.LogVerbose($"Removed {deletion.Key} ({deletion.Value.HostName}) from membership list.");
             }
 
             foreach (var update in updates)
@@ -788,7 +791,7 @@ namespace SkyNet20
                     itemToUpdate.HeartbeatCounter = itemToUpdate.HeartbeatCounter + 1;
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
-                    this.LogVerbose($"Updated {update.Key} last heartbeat to {itemToUpdate.LastHeartbeat}");
+                    this.LogVerbose($"Updated {update.Key} ({update.Value.HostName}) last heartbeat to {itemToUpdate.LastHeartbeat}");
                 }
             }
         }
@@ -886,7 +889,7 @@ namespace SkyNet20
 
             if (sucessorIndex < 0)
             {
-                sucessorIndex = 0;
+                sucessorIndex = sucessorIndex + sortedList.Count;
             }
 
             return sortedList.ElementAt(sucessorIndex).Value;
