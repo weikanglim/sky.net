@@ -330,20 +330,20 @@ namespace SkyNet20
             return heartbeatSent;
         }
 
-        private void SendHeartBeats(SortedList<string, SkyNetNodeInfo> ringList)
+        private void SendHeartBeats(List<SkyNetNodeInfo> successors, List<SkyNetNodeInfo> predecessors)
         {
-            foreach (SkyNetNodeInfo predecessor in this.GetHeartbeatSuccessors(ringList))
+            foreach (SkyNetNodeInfo predecessor in predecessors)
             {
                 SendHeartBeatCommand(predecessor);
             }
 
-            foreach (SkyNetNodeInfo sucessor in this.GetHeartbeatSuccessors(ringList))
+            foreach (SkyNetNodeInfo sucessor in successors)
             {
                 SendHeartBeatCommand(sucessor);
             }
         }
 
-        private void DetectFailures(SortedList<string, SkyNetNodeInfo> ringList)
+        private void DetectFailures(List<SkyNetNodeInfo> successors, List<SkyNetNodeInfo> predecessors)
         {
             HashSet<string> failures = new HashSet<string>();
             // Update self's heartbeat
@@ -352,7 +352,7 @@ namespace SkyNet20
                 self.LastHeartbeat = DateTime.UtcNow.Ticks;
             }
 
-            foreach (var element in this.GetHeartbeatSuccessors(ringList))
+            foreach (var element in successors)
             {
                 // Check for heartbeats exceeding timeout
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
@@ -363,7 +363,7 @@ namespace SkyNet20
                 }
             }
 
-            foreach (var element in this.GetHeartbeatPredecessors(ringList))
+            foreach (var element in predecessors)
             {
                 // Check for heartbeats exceeding timeout
                 DateTime lastHeartbeat = new DateTime(element.LastHeartbeat);
@@ -378,7 +378,7 @@ namespace SkyNet20
             {
                 if (machineList.TryGetValue(failure, out SkyNetNodeInfo failedTarget))
                 {
-                    this.LogImportant($"{failedTarget.MachineId} has failed.");
+                    this.LogImportant($"{failedTarget.MachineId} ({failedTarget.HostName}) has failed.");
                     failedTarget.Status = Status.Failed;
                 }
             }
@@ -411,9 +411,24 @@ namespace SkyNet20
                     if (this.isConnected)
                     {
                         SortedList<string, SkyNetNodeInfo> ringList = new SortedList<string, SkyNetNodeInfo>(this.machineList);
-                        this.DetectFailures(ringList);
+                        var successors = this.GetHeartbeatSuccessors(ringList);
+                        var predecessors = this.GetHeartbeatPredecessors(ringList);
 
-                        this.SendHeartBeats(ringList);
+                        StringBuilder sb = new StringBuilder("Successors: ");
+                        foreach (var element in successors)
+                        {
+                            sb.Append(element.MachineId + $"({element.HostName})" + ", " );
+                        }
+
+                        sb.Append("Predecessors: ");
+                        foreach (var element in predecessors)
+                        {
+                            sb.Append(element.MachineId + $"({element.HostName})" + ", ");
+                        }
+                        this.LogVerbose(sb.ToString());
+
+                        this.DetectFailures(successors, predecessors);
+                        this.SendHeartBeats(successors, predecessors);
                     }
                 }
                 catch (Exception ex)
@@ -465,7 +480,7 @@ namespace SkyNet20
                 {
                     leftNode.Status = Status.Failed;
 
-                    this.LogImportant($"{machineId} has left.");
+                    this.LogImportant($"{machineId} ({leftNode.HostName}) has left.");
 
                     try
                     {
@@ -509,7 +524,7 @@ namespace SkyNet20
                 if (!this.machineList.ContainsKey(machineId))
                 {
                     this.machineList.TryAdd(joinedNode.MachineId, joinedNode);
-                    this.LogImportant($"{machineId} has joined.");
+                    this.LogImportant($"{machineId} ({joinedNode.HostName}) has joined.");
 
                     this.SendMembershipUpdateCommand(joinedNode);
                 }
