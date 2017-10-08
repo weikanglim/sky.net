@@ -1,0 +1,9 @@
+#!/bin/bash
+sourceDir=dirname "$0"
+
+cd "$sourceDir"
+git fetch -vvv
+git checkout master
+git pull
+
+./build
