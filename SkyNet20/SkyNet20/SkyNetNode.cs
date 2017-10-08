@@ -531,13 +531,13 @@ namespace SkyNet20
 
         private void ProcessHeartbeatCommand(string machineId, MembershipUpdateCommand updateCommand)
         {
+            this.LogVerbose($"Received heartbeat from {machineId}");
+
             if (this.machineId == machineId)
             {
                 this.LogError("Received heartbeat from self.");
                 return;
             }
-
-            this.LogVerbose($"Received heartbeat from {update.MachineId}");
 
             if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo update))
             {
