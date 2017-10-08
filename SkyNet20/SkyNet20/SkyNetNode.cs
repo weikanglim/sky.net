@@ -295,7 +295,14 @@ namespace SkyNet20
                     PayloadType = PayloadType.Heartbeat,
                 };
 
+                MembershipUpdateCommand membershipUpdate = new MembershipUpdateCommand
+                {
+                    machineList = new Dictionary<string, SkyNetNodeInfo>(this.machineList),
+                };
+
                 Serializer.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128);
+                Serializer.SerializeWithLengthPrefix(stream, membershipUpdate, PrefixStyle.Base128);
+
                 heartbeat = stream.ToArray();
             }
 
@@ -372,7 +379,7 @@ namespace SkyNet20
             {
                 if (machineList.TryGetValue(failure, out SkyNetNodeInfo failedTarget))
                 {
-                    this.LogImportant($"{failedTarget.MachineId} ({failedTarget.HostName}) has failed.");
+                    this.LogImportant($"{failedTarget.MachineId} has failed.");
                     failedTarget.Status = Status.Failed;
                 }
             }
@@ -522,7 +529,7 @@ namespace SkyNet20
             this.MergeMembershipList(updateCommand.machineList);
         }
 
-        private void ProcessHeartbeatCommand(string machineId)
+        private void ProcessHeartbeatCommand(string machineId, MembershipUpdateCommand updateCommand)
         {
             if (this.machineId == machineId)
             {
@@ -530,10 +537,14 @@ namespace SkyNet20
                 return;
             }
 
+            this.LogVerbose($"Received heartbeat from {update.MachineId}");
+
             if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo update))
             {
                 update.LastHeartbeat = DateTime.UtcNow.Ticks;
             }
+
+            this.ProcessMembershipUpdateCommand(machineId, updateCommand);
         }
 
         private async Task ProcessGrepCommand(SkyNetNodeInfo skyNetNode, String grepExpression)
@@ -713,7 +724,8 @@ namespace SkyNet20
                             break;
 
                         case PayloadType.Heartbeat:
-                            this.ProcessHeartbeatCommand(machineId);
+                            MembershipUpdateCommand heartbeatMembershipUpdate = Serializer.DeserializeWithLengthPrefix<MembershipUpdateCommand>(stream, PrefixStyle.Base128);
+                            this.ProcessHeartbeatCommand(machineId, heartbeatMembershipUpdate);
                             break;
 
                         case PayloadType.MembershipJoin:
