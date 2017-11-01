@@ -39,6 +39,9 @@ namespace SkyNet20
         public Status Status { get; set; }
         [ProtoMember(4)]
         public long HeartbeatCounter { get; set; }
+        // !TODO: Do we send these in gossip?
+        public bool IsActiveMaster { get; set; }
+        public bool IsMaster { get; set; }
 
         public IPAddress IPAddress { get; set; }
 
@@ -47,6 +50,15 @@ namespace SkyNet20
             get
             {
                 return new IPEndPoint(this.IPAddress, SkyNetConfiguration.DefaultPort);
+            }
+        }
+
+
+        public IPEndPoint SdfsEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.SdfsPort);
             }
         }
 

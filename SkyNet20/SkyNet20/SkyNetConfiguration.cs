@@ -159,5 +159,39 @@ namespace SkyNet20
                 return Int32.Parse(ConfigurationManager.AppSettings["GossipRoundTargets"]);
             }
         }
+
+
+        /// <summary>
+        /// Port used by distributed file system storage.
+        /// </summary>
+        public static int SdfsPort
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["SdfsPort"]);
+            }
+        }
+
+        /// <summary>
+        /// Lower bound of transfer ports used by distributed file system storage.
+        /// </summary>
+        public static int SdfsTransferPortLowerBound
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["SdfsTransferPorts"].Split("-")[0]);
+            }
+        }
+
+        /// <summary>
+        /// Upper bound of transfer ports used by distributed file system storage.
+        /// </summary>
+        public static int SdfsTransferPortUpperBound
+        {
+            get
+            {
+                return Int32.Parse(ConfigurationManager.AppSettings["SdfsTransferPorts"].Split("-")[1]);
+            }
+        }
     }
 }

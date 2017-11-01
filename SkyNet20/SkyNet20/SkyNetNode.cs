@@ -16,6 +16,8 @@ using SkyNet20.Network;
 using SkyNet20.Network.Commands;
 using SkyNet20.Configuration;
 using SkyNet20.Extensions;
+using SkyNet20.SDFS;
+using SkyNet20.SDFS.Requests;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 
@@ -622,6 +624,44 @@ namespace SkyNet20
             }
         }
 
+        private SkyNetNodeInfo GetActiveMaster()
+        {
+            return machineList.First(x => x.Value.IsActiveMaster == true).Value;
+        }
+
+        private void MakeGetRequest(string sdfsFileName, string localFileName)
+        {
+        }
+
+        private void MakeSetRequest(string sdfsFileName, string localFileName)
+        {
+        }
+
+        private void MakeDeleteRequest(string sdfsFileName)
+        {
+        }
+
+        private void MakeListRequest(string sdsfsFileName)
+        {
+            SkyNetNodeInfo master = GetActiveMaster();
+
+            using (UdpClient udpClient = new UdpClient())
+            {
+                SdfsPacket<ListRequest> listRequest = new SdfsPacket<ListRequest>
+                {
+                    Header = new SdfsPacketHeader
+                    {
+                        MachineId = machineId,
+                    },
+
+                    Payload = new ListRequest()
+                };
+
+                byte [] packet = listRequest.ToBytes();
+                udpClient.Send(packet, packet.Length, master.SdfsEndPoint);
+            }
+        }
+
         public async Task PromptUser()
         {
             while (true)
@@ -630,10 +670,11 @@ namespace SkyNet20
                 {
                     Console.WriteLine();
                     Console.WriteLine("List of commands: ");
-                    Console.WriteLine("[1] Show membership list");
-                    Console.WriteLine("[2] Show machine id");
-                    Console.WriteLine("[3] Join the group");
-                    Console.WriteLine("[4] Leave the group");
+                    Console.WriteLine("[1] put <localfilename> <sdfsfilename>");
+                    Console.WriteLine("[2] get <sdfsfilename> <localfilename>");
+                    Console.WriteLine("[3] delete <sdfsfilename> <localfilename>");
+                    Console.WriteLine("[4] ls <sdfsfilename>");
+                    Console.WriteLine("[5] store");
 
                     string cmd = await ReadConsoleAsync();
 
@@ -642,42 +683,26 @@ namespace SkyNet20
                         switch (option)
                         {
                             case 1:
-                                foreach (var keyValuePair in this.machineList.Where(kv => kv.Value.Status != Status.Failed))
-                                {
-                                    Console.WriteLine($"{keyValuePair.Key} ({keyValuePair.Value.HostName})");
-                                }
+                                throw new NotImplementedException();
                                 break;
 
                             case 2:
-                                Console.WriteLine($"{this.machineId} (${this.hostEntry.HostName})");
+                                throw new NotImplementedException();
                                 break;
 
                             case 3:
-                                if (!this.isConnected)
-                                {
-                                    bool joined = this.SendJoinCommand();
-
-                                    // UI waits
-                                    await Task.Delay(TimeSpan.FromMilliseconds(200));
-                                }
-                                else
-                                {
-                                    Console.WriteLine("Unable to join, already connected to the group.");
-                                }
+                                throw new NotImplementedException();
                                 break;
 
                             case 4:
-                                if (this.isConnected)
-                                {
-                                    this.SendLeaveCommand();
+                                throw new NotImplementedException();
+                                break;
 
-                                    Environment.Exit(0);
-                                }
-                                else
+                            case 5:
+                                foreach (var file in Storage.ListStoredFiles())
                                 {
-                                    Console.WriteLine("Unable to leave group, machine is not currently joined to group.");
+                                    Console.WriteLine(file);
                                 }
-
                                 break;
 
                             default:
@@ -703,18 +728,14 @@ namespace SkyNet20
         public void Run()
         {
             // Auto-join
-            //if (!this.isIntroducer)
-            //{
-            //    // Join the network
-            //    var introducerHostName = SkyNetConfiguration.Machines.Where(kv => kv.Value.IsIntroducer == true).Select(kv => kv.Key).First();
-            //    SkyNetNodeInfo introducer = new SkyNetNodeInfo(introducerHostName, this.GetIpAddress(introducerHostName).ToString(), this.GetEndPoint(introducerHostName));
-
-            //    while (!this.SendJoinCommand(introducer))
-            //    {
-            //        this.Log("Re-trying join command.");
-            //        Thread.Sleep(1000);
-            //    }
-            //}
+            if (!this.isIntroducer)
+            {
+                while (!this.SendJoinCommand())
+                {
+                    this.Log("Re-trying join command.");
+                    Thread.Sleep(1000);
+                }
+            }
 
             Task[] serverTasks = {
                 ReceiveCommand(),
@@ -730,7 +751,7 @@ namespace SkyNet20
         public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
             // First, detect if self has failed.
-            bool selfHasFailed = (listToMerge.ContainsKey(this.machineId) && listToMerge[this.machineId] != null && listToMerge[this.machineId].Status == Status.Failed);
+            bool selfHasFailed = listToMerge.TryGetValue(this.machineId, out SkyNetNodeInfo self) && self.Status == Status.Failed;
 
             if (selfHasFailed)
             {
