@@ -61,6 +61,22 @@ namespace SkyNet20
             }
         }
 
+        public static int FileTransferPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["FileTransferPort"]);
+            }
+        }
+
+        public static int TimeStampPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["TimeStampPort"]);
+            }
+        }
+
         /// <summary>
         /// The default port used by <see cref="SkyNetNode"/> instances
         /// </summary>

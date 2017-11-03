@@ -13,6 +13,15 @@ namespace SkyNet20.Network
         MembershipJoin,
         MembershipLeave,
         MembershipLeaveAck,
+
+        DeleteFile,
+        PutFile,
+        GetFile,
+
+        FileTimeStampResponse,
+        FileTimeStampRequest,
+        FileTransferRequest,
+        FileTransferResponse
     }
 
     [ProtoContract]
