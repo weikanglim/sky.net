@@ -631,17 +631,78 @@ namespace SkyNet20
 
         private void MakeGetRequest(string sdfsFileName, string localFileName)
         {
+            SkyNetNodeInfo master = GetActiveMaster();
+
+            using (UdpClient udpClient = new UdpClient())
+            {
+                SdfsPacket<GetRequest> getRequest = new SdfsPacket<GetRequest>
+                {
+                    Header = new SdfsPacketHeader
+                    {
+                        MachineId = machineId,
+                    },
+
+                    Payload = new GetRequest
+                    {
+                        FileName = sdfsFileName
+                    },
+                };
+
+                byte[] packet = getRequest.ToBytes();
+                udpClient.Send(packet, packet.Length, master.SdfsEndPoint);
+            }
         }
 
-        private void MakeSetRequest(string sdfsFileName, string localFileName)
+        private void MakePutRequest(string sdfsFileName, string localFileName)
         {
+            SkyNetNodeInfo master = GetActiveMaster();
+
+            using (UdpClient udpClient = new UdpClient())
+            {
+                SdfsPacket<PutRequest> putRequest = new SdfsPacket<PutRequest>
+                {
+                    Header = new SdfsPacketHeader
+                    {
+                        MachineId = machineId,
+                    },
+
+                    Payload = new PutRequest
+                    {
+                        FileName = sdfsFileName
+                    },
+                };
+
+                byte[] packet = putRequest.ToBytes();
+                
+                udpClient.Send(packet, packet.Length, master.SdfsEndPoint);
+            }
         }
 
         private void MakeDeleteRequest(string sdfsFileName)
         {
+            SkyNetNodeInfo master = GetActiveMaster();
+
+            using (UdpClient udpClient = new UdpClient())
+            {
+                SdfsPacket<DeleteRequest> deleteRequest = new SdfsPacket<DeleteRequest>
+                {
+                    Header = new SdfsPacketHeader
+                    {
+                        MachineId = machineId,
+                    },
+
+                    Payload = new DeleteRequest
+                    {
+                        FileName = sdfsFileName
+                    },
+                };
+
+                byte[] packet = deleteRequest.ToBytes();
+                udpClient.Send(packet, packet.Length, master.SdfsEndPoint);
+            }
         }
 
-        private void MakeListRequest(string sdsfsFileName)
+        private void MakeListRequest(string sdfsFileName)
         {
             SkyNetNodeInfo master = GetActiveMaster();
 
@@ -654,7 +715,10 @@ namespace SkyNet20
                         MachineId = machineId,
                     },
 
-                    Payload = new ListRequest()
+                    Payload = new ListRequest
+                    {
+                        FileName = sdfsFileName
+                    },
                 };
 
                 byte [] packet = listRequest.ToBytes();
@@ -670,11 +734,15 @@ namespace SkyNet20
                 {
                     Console.WriteLine();
                     Console.WriteLine("List of commands: ");
-                    Console.WriteLine("[1] put <localfilename> <sdfsfilename>");
-                    Console.WriteLine("[2] get <sdfsfilename> <localfilename>");
-                    Console.WriteLine("[3] delete <sdfsfilename> <localfilename>");
-                    Console.WriteLine("[4] ls <sdfsfilename>");
-                    Console.WriteLine("[5] store");
+                    Console.WriteLine("[1] Show membership list");
+                    Console.WriteLine("[2] Show machine id");
+                    Console.WriteLine("[3] Join the group");
+                    Console.WriteLine("[4] Leave the group");
+                    Console.WriteLine("[5] put <localfilename> <sdfsfilename>");
+                    Console.WriteLine("[6] get <sdfsfilename> <localfilename>");
+                    Console.WriteLine("[7] delete <sdfsfilename> <localfilename>");
+                    Console.WriteLine("[8] ls <sdfsfilename>");
+                    Console.WriteLine("[9] store");
 
                     string cmd = await ReadConsoleAsync();
 
@@ -683,22 +751,60 @@ namespace SkyNet20
                         switch (option)
                         {
                             case 1:
-                                throw new NotImplementedException();
+                                foreach (var keyValuePair in this.machineList.Where(kv => kv.Value.Status != Status.Failed))
+                                {
+                                    Console.WriteLine($"{keyValuePair.Key} ({keyValuePair.Value.HostName})");
+                                }
                                 break;
 
                             case 2:
-                                throw new NotImplementedException();
+                                Console.WriteLine($"{this.machineId} (${this.hostEntry.HostName})");
                                 break;
 
                             case 3:
-                                throw new NotImplementedException();
+                                if (!this.isConnected)
+                                {
+                                    bool joined = this.SendJoinCommand();
+
+                                    // UI waits
+                                    await Task.Delay(TimeSpan.FromMilliseconds(200));
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Unable to join, already connected to the group.");
+                                }
                                 break;
 
                             case 4:
-                                throw new NotImplementedException();
+                                if (this.isConnected)
+                                {
+                                    this.SendLeaveCommand();
+
+                                    Environment.Exit(0);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Unable to leave group, machine is not currently joined to group.");
+                                }
                                 break;
 
                             case 5:
+                                throw new NotImplementedException();
+                                break;
+
+                            case 6:
+                                throw new NotImplementedException();
+                                break;
+
+                            case 7:
+                                throw new NotImplementedException();
+                                break;
+
+                            case 8:
+                                throw new NotImplementedException();
+                                break;
+
+                            case 9:
                                 foreach (var file in Storage.ListStoredFiles())
                                 {
                                     Console.WriteLine(file);
@@ -727,15 +833,15 @@ namespace SkyNet20
         /// </summary>
         public void Run()
         {
-            // Auto-join
-            if (!this.isIntroducer)
-            {
-                while (!this.SendJoinCommand())
-                {
-                    this.Log("Re-trying join command.");
-                    Thread.Sleep(1000);
-                }
-            }
+            //// Auto-join
+            //if (!this.isIntroducer)
+            //{
+            //    while (!this.SendJoinCommand())
+            //    {
+            //        this.Log("Re-trying join command.");
+            //        Thread.Sleep(1000);
+            //    }
+            //}
 
             Task[] serverTasks = {
                 ReceiveCommand(),
