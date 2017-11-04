@@ -99,7 +99,7 @@ namespace SkyNet20
         {
             SortedList<int, SkyNetNodeInfo> ret = new SortedList<int, SkyNetNodeInfo>();
 
-            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in this.machineList)
+            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in this.machineList.Where(x => x.Value.IsMaster = true && x.Value.Status == Status.Alive))
             {
                 SkyNetNodeInfo node = kvp.Value;
                 string sMachineNumber = this.GetMachineNumber(this.hostEntry.HostName);
@@ -508,6 +508,8 @@ namespace SkyNet20
 
                 SkyNetNodeInfo selectedMasterNode = ChooseRandomNode(masterNodes);
                 selectedMasterNode.IsMaster = true;
+
+                // TODO: Master - Send Index File
             }
 
             return true;
@@ -1318,10 +1320,11 @@ namespace SkyNet20
 
                     this.LogImportant($"{machineId} ({leftNode.HostName}) has left.");
 
-                    if (!ProcessNodeFailureFileRecovery(leftNode))
-                    {
-                        this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
-                    }
+                    // TODO: Node - Failure detection not needed here, because of update method?
+                    //if (!ProcessNodeFailureFileRecovery(leftNode))
+                    //{
+                    //    this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
+                    //}
 
                     try
                     {
@@ -1361,6 +1364,10 @@ namespace SkyNet20
                 {
                     LastHeartbeat = DateTime.UtcNow.Ticks,
                 };
+
+                // Master - This machine should be a master node if there are less than 3 masters
+                if (this.GetMasterNodes().Count < 3)
+                    joinedNode.IsMaster = true;
 
                 if (!this.machineList.ContainsKey(machineId))
                 {
@@ -1539,20 +1546,6 @@ namespace SkyNet20
         /// </summary>
         public void Run()
         {
-            // Auto-join
-            //if (!this.isIntroducer)
-            //{
-            //    // Join the network
-            //    var introducerHostName = SkyNetConfiguration.Machines.Where(kv => kv.Value.IsIntroducer == true).Select(kv => kv.Key).First();
-            //    SkyNetNodeInfo introducer = new SkyNetNodeInfo(introducerHostName, this.GetIpAddress(introducerHostName).ToString(), this.GetEndPoint(introducerHostName));
-
-            //    while (!this.SendJoinCommand(introducer))
-            //    {
-            //        this.Log("Re-trying join command.");
-            //        Thread.Sleep(1000);
-            //    }
-            //}
-
             Task[] serverTasks = {
                 ReceiveCommand(),
                 PromptUser(),
