@@ -1488,10 +1488,12 @@ namespace SkyNet20
                     IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
                     foreach (SkyNetNodeInfo node in masters)
                     {
-                        Console.WriteLine("Master:" + node.HostName);
+                        Console.WriteLine("Master: " + node.HostName);
                     }
 
-                    //Console.WriteLine("Active:" + this.GetActiveMaster().HostName);
+                    SkyNetNodeInfo active = this.GetActiveMaster();
+                    if (active != null)
+                     Console.WriteLine("Active: " + active.HostName);
 
                     //Console.WriteLine("[Delete <filename>] Delete File");
 
