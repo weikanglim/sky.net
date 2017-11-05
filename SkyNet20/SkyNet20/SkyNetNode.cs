@@ -1208,6 +1208,12 @@ namespace SkyNet20
                 {
                     this.LogImportant($"{failedTarget.MachineId} ({failedTarget.HostName}) has failed.");
                     failedTarget.Status = Status.Failed;
+
+                    // ProcessNodeFailureFileRecovery
+                    if (!ProcessNodeFailureFileRecovery(failedTarget))
+                    {
+                        this.LogImportant($"{failedTarget.MachineId} files have failed to recovered.");
+                    }
                 }
             }
 
@@ -1227,11 +1233,6 @@ namespace SkyNet20
             foreach (var prune in prunes)
             {
                 machineList.TryRemove(prune, out SkyNetNodeInfo value);
-                // ProcessNodeFailureFileRecovery
-                if (!ProcessNodeFailureFileRecovery(value))
-                {
-                    this.LogImportant($"{value.MachineId} files have failed to recovered.");
-                }
             }
         }
 
