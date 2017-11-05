@@ -102,7 +102,7 @@ namespace SkyNet20
             foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in this.machineList.Where(x => x.Value.IsMaster = true && x.Value.Status == Status.Alive))
             {
                 SkyNetNodeInfo node = kvp.Value;
-                string sMachineNumber = this.GetMachineNumber(this.hostEntry.HostName);
+                string sMachineNumber = this.GetMachineNumber(node.HostName);
                 int iMachineNumber = 100;
                 bool bParse = Int32.TryParse(sMachineNumber, out iMachineNumber);
                 if (!bParse)
@@ -1481,7 +1481,8 @@ namespace SkyNet20
 
                     // TODO: Test - Remove later
                     Console.WriteLine();
-                    foreach (SkyNetNodeInfo node in this.machineList.Values.Where(x => x.IsMaster = true && x.Status == Status.Alive))
+                    IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
+                    foreach (SkyNetNodeInfo node in masters)
                     {
                         Console.WriteLine(node.HostName);
                     }
