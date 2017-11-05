@@ -1367,8 +1367,11 @@ namespace SkyNet20
                 };
 
                 // Master - This machine should be a master node if there are less than 3 masters
-                if (this.GetMasterNodes().Count < 3)
+                int masterCount = this.GetMasterNodes().Count;
+                if (masterCount < 3)
                     joinedNode.IsMaster = true;
+                else
+                    joinedNode.IsMaster = false;
 
                 if (!this.machineList.ContainsKey(machineId))
                 {
