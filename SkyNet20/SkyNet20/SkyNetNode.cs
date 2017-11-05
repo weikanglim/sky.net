@@ -626,7 +626,7 @@ namespace SkyNet20
 
         private SkyNetNodeInfo GetActiveMaster()
         {
-            return machineList.First(x => x.Value.IsActiveMaster == true).Value;
+            return GetSortedList().First(x => x.Value.IsMaster == true).Value;
         }
 
         private void MakeGetRequest(string sdfsFileName, string localFileName)
@@ -1001,7 +1001,18 @@ namespace SkyNet20
             this.Log("[Verbose]" + line, false);
         }
 
-        private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
+        private SortedList<string, SkyNetNodeInfo> GetSortedList()
+        {
+            SortedList<string, SkyNetNodeInfo> sortedList = new SortedList<string, SkyNetNodeInfo>();
+            foreach (var kvp in this.machineList.Where(kv => kv.Value.Status == Status.Alive))
+            {
+                sortedList.Add(kvp.Key, kvp.Value);
+            }
+
+            return sortedList;
+        }
+
+    private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
         {
             int nodeIndex = sortedList.IndexOfKey(node.MachineId);
             int sucessorIndex = (nodeIndex + 1) % sortedList.Count;
