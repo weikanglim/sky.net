@@ -1641,7 +1641,7 @@ namespace SkyNet20
 
                     if (itemToUpdate.Status == Status.Alive && incomingUpdate.IsMaster)
                     {
-                        //itemToUpdate.IsMaster = incomingUpdate.IsMaster;
+                        itemToUpdate.IsMaster = incomingUpdate.IsMaster;
                     }
 
                     itemToUpdate.HeartbeatCounter = itemToUpdate.HeartbeatCounter + 1;
