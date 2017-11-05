@@ -743,7 +743,7 @@ namespace SkyNet20
 
             try
             {
-                using (TcpClient tcpClient = new TcpClient(node.FileIndexTransferRequestEndPoint))
+                using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.FileIndexTransferPort))
                 {
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
