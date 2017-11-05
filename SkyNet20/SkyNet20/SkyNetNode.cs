@@ -605,14 +605,15 @@ namespace SkyNet20
                         Console.WriteLine($"Asking for timestame of ${filename} at {value.HostName}");
                         DateTime? dt = null;
 
-                        if (value == this.GetCurrentNodeInfo())
+                        if (value.HostName == this.GetCurrentNodeInfo().HostName)
                         {
+                            Console.WriteLine("File Stored Locally");
                             if (this.indexFile.ContainsKey(filename))
                                 dt = this.indexFile[filename].Item2;
                         }
                         else
                             dt = SendTimeStampPacketToNode(message, value);
-                        
+
                         if (dt != null)
                         {
                             Console.WriteLine($"{dt.Value.ToString()}");
