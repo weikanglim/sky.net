@@ -647,9 +647,10 @@ namespace SkyNet20
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
 
-                    byte[] payload = new byte[256];
+                    byte[] payload = new byte[512];
 
                     Int32 bytes = stream.Read(payload, 0, payload.Length);
+
                     using (MemoryStream responseStream = new MemoryStream(payload))
                     {
                         SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(stream, PrefixStyle.Base128);
