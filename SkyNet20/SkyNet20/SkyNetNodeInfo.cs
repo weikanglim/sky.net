@@ -76,11 +76,11 @@ namespace SkyNet20
             }
         }
 
-        public IPEndPoint SdfsEndPoint
+        public IPEndPoint StorageFileTransferEndPoint
         {
             get
             {
-                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.SdfsPort);
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.StorageFileTransferPort);
             }
         }
 

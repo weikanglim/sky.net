@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Text;
 using System.Configuration;
 using SkyNet20.Configuration;
+using System.Runtime.InteropServices;
+using SkyNet20.Utility;
+using System.IO;
 
 namespace SkyNet20
 {
@@ -96,6 +99,9 @@ namespace SkyNet20
             }
         }
 
+
+        private static string programPath;
+
         /// <summary>
         /// The SkyNet installation path.
         /// </summary>
@@ -103,7 +109,21 @@ namespace SkyNet20
         {
             get
             {
-                return ConfigurationManager.AppSettings["ProgramPath"];
+                if (String.IsNullOrEmpty(programPath))
+                {
+                    if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    {
+                        // Use bash to get back actual path
+                        programPath = CmdUtility.RunCmd("echo " + SkyNetConfiguration.ProgramPath).Output;
+                        programPath = programPath.TrimEnd('\n');
+                    }
+                    else
+                    {
+                        programPath = ConfigurationManager.AppSettings["ProgramPath"];
+                    }
+                }
+
+                return programPath;
             }
         }
 
@@ -114,7 +134,7 @@ namespace SkyNet20
         {
             get
             {
-                return ConfigurationManager.AppSettings["LogPath"];
+                return ProgramPath + Path.DirectorySeparatorChar + "log";
             }
         }
 
@@ -188,11 +208,11 @@ namespace SkyNet20
         /// <summary>
         /// Port used by distributed file system storage.
         /// </summary>
-        public static int SdfsPort
+        public static int StorageFileTransferPort
         {
             get
             {
-                return Int32.Parse(ConfigurationManager.AppSettings["SdfsPort"]);
+                return Int32.Parse(ConfigurationManager.AppSettings["StorageFileTransferPort"]);
             }
         }
     }

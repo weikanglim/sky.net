@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using SkyNet20.Utility;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace SkyNet20.SDFS
 {
@@ -18,6 +19,20 @@ namespace SkyNet20.SDFS
     {
         private static readonly string storageDirectory = SkyNetConfiguration.ProgramPath + Path.DirectorySeparatorChar + "fs";
         private static readonly string stagingDirectory = SkyNetConfiguration.ProgramPath + Path.DirectorySeparatorChar + "stage";
+
+
+        public static void Initialize()
+        {
+            if (!Directory.Exists(storageDirectory))
+            {
+                Directory.CreateDirectory(storageDirectory);
+            }
+
+            if (!Directory.Exists(stagingDirectory))
+            {
+                Directory.CreateDirectory(stagingDirectory);
+            }
+        }
 
         public static IEnumerable<string> ListStoredFiles()
         {
@@ -38,7 +53,50 @@ namespace SkyNet20.SDFS
                 storageDirectory + Path.DirectorySeparatorChar + filename);
         }
 
-        public string StagingDirectory
+        public static async Task WriteAsync(byte[] payload, string filename)
+        {
+            using (FileStream fs = File.Create(GetStoredFilePath(filename)))
+            {
+                await fs.WriteAsync(payload, 0, payload.Length);
+            }
+        }
+
+        public static bool Exists(string filename)
+        {
+            return File.Exists(GetStoredFilePath(filename));
+        }
+
+        public static FileStream Read(string filename)
+        {
+            return File.OpenRead(GetStoredFilePath(filename));
+        }
+
+        public static async Task<byte[]> ReadContentAsync(string filename)
+        {
+            return await File.ReadAllBytesAsync(GetStoredFilePath(filename));
+        }
+
+        public static long FileBytes(string filename)
+        {
+            return new FileInfo(GetStoredFilePath(filename)).Length;
+        }
+
+        public static void Delete(string filename)
+        {
+            File.Delete(GetStoredFilePath(filename));
+        }
+
+        private static string GetStoredFilePath(string filename)
+        {
+            return StorageDirectory + Path.DirectorySeparatorChar + filename;
+        }
+
+        private static string GetStagingilePath(string filename)
+        {
+            return StagingDirectory + Path.DirectorySeparatorChar + filename;
+        }
+
+        public static string StagingDirectory
         {
             get
             {
@@ -46,7 +104,7 @@ namespace SkyNet20.SDFS
             }
         }
 
-        public string StoragetDirectory
+        public static string StorageDirectory
         {
             get
             {
