@@ -603,7 +603,15 @@ namespace SkyNet20
                     if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo value))
                     {
                         Console.WriteLine($"Asking for timestame of ${filename} at {value.HostName}");
-                        DateTime? dt = SendTimeStampPacketToNode(message, value);
+                        DateTime? dt = null;
+
+                        if (value == this.GetCurrentNodeInfo())
+                        {
+                            if (this.indexFile.ContainsKey(filename))
+                                dt = this.indexFile[filename].Item2;
+                        }
+                        else
+                            dt = SendTimeStampPacketToNode(message, value);
                         
                         if (dt != null)
                         {
@@ -630,6 +638,8 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.TimeStampPort))
                 {
+                    Console.WriteLine("Connected to Server");
+
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
