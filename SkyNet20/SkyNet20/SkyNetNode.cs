@@ -653,7 +653,8 @@ namespace SkyNet20
 
                     using (MemoryStream responseStream = new MemoryStream(payload))
                     {
-                        SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(stream, PrefixStyle.Base128);
+                        SkyNetPacketHeader packetHeader = 
+                            Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(responseStream, PrefixStyle.Base128);
 
                         if (packetHeader.PayloadType != PayloadType.FileTimeStampResponse)
                             return null;
