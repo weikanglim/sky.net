@@ -1003,79 +1003,74 @@ namespace SkyNet20
 
         private async Task NodeRecoveryIndexFileTransferServer()
         {
-            while(true)
+            while(!this.isConnected)
             {
-                TcpListener server = null;
+                await Task.Delay(10);
+            }
 
-                if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
+            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileIndexTransferPort);
+
+            // Start listening for client requests.
+            server.Start();
+
+            if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
+            {
+                this.LogError($"Node Recovery Server not started at {machineId}");
+            }
+            else
+                this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
+
+            try
+            {
+                // Buffer for reading data
+                Byte[] bytes = new Byte[512];
+
+                // Enter the listening loop.
+                while (true)
                 {
-                    this.LogError($"Node Recovery Server not started at {machineId}");
-                }
-                else
-                    this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
+                    Console.WriteLine("Index File server started... ");
+                    this.Log("Index File server started... ");
 
-                try
-                {
-                    server = new TcpListener(currentNode.FileIndexTransferRequestEndPoint);
+                    // Perform a blocking call to accept requests.
+                    // You could also user server.AcceptSocket() here.
+                    TcpClient client = await server.AcceptTcpClientAsync();
 
-                    // Start listening for client requests.
-                    server.Start();
+                    // Get a stream object for reading and writing
+                    NetworkStream stream = client.GetStream();
 
-                    // Buffer for reading data
-                    Byte[] bytes = new Byte[512];
+                    int i;
 
-                    // Enter the listening loop.
-                    while (true)
+                    // Loop to receive all the data sent by the client.
+                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
                     {
-                        Console.WriteLine("Index File server started... ");
-                        this.Log("Index File server started... ");
+                        PayloadType payloadType;
 
-                        // Perform a blocking call to accept requests.
-                        // You could also user server.AcceptSocket() here.
-                        TcpClient client = await server.AcceptTcpClientAsync();
-
-                        // Get a stream object for reading and writing
-                        NetworkStream stream = client.GetStream();
-
-                        int i;
-
-                        // Loop to receive all the data sent by the client.
-                        while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
+                        using (MemoryStream retStream = new MemoryStream(bytes))
                         {
-                            PayloadType payloadType;
+                            Console.WriteLine("Index File Received... ");
+                            SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
+                            string machineId = packetHeader.MachineId;
+                            this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
-                            using (MemoryStream retStream = new MemoryStream(bytes))
-                            {
-                                Console.WriteLine("Index File Received... ");
-                                SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
-                                string machineId = packetHeader.MachineId;
-                                this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                            payloadType = packetHeader.PayloadType;
 
-                                payloadType = packetHeader.PayloadType;
-
-                                IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
-                                this.indexFile = indexFileCommand.indexFile;
-                            }
-
-
-                            // Send back a response.
-                            byte[] retmessage = BitConverter.GetBytes(true);
-                            stream.Write(retmessage, 0, retmessage.Length);
+                            IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
+                            this.indexFile = indexFileCommand.indexFile;
                         }
 
-                        // Shutdown and end connection
-                        client.Close();
+
+                        // Send back a response.
+                        byte[] retmessage = BitConverter.GetBytes(true);
+                        stream.Write(retmessage, 0, retmessage.Length);
                     }
+
+                    // Shutdown and end connection
+                    client.Close();
                 }
-                catch (SocketException e)
-                {
-                    Console.WriteLine("SocketException: {0}", e);
-                }
-                finally
-                {
-                    // Stop listening for new clients.
-                    server.Stop();
-                }
+            }
+            catch (SocketException e)
+            {
+                Console.WriteLine("SocketException: {0}", e);
             }
         }
 
