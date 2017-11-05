@@ -99,7 +99,7 @@ namespace SkyNet20
         {
             SortedList<int, SkyNetNodeInfo> ret = new SortedList<int, SkyNetNodeInfo>();
 
-            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in this.machineList.Where(x => x.Value.IsMaster = true && x.Value.Status == Status.Alive))
+            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in this.machineList.Where(x => x.Value.IsMaster == true && x.Value.Status == Status.Alive))
             {
                 SkyNetNodeInfo node = kvp.Value;
                 string sMachineNumber = this.GetMachineNumber(node.HostName);
