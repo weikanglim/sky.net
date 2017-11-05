@@ -72,7 +72,7 @@ namespace SkyNet20
         {
             get
             {
-                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.FileTransferPort);
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.FileIndexTransferPort);
             }
         }
 
