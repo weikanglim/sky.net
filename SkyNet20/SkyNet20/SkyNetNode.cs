@@ -660,7 +660,7 @@ namespace SkyNet20
                             return null;
 
                         FileTimeStampResponseCommand fileTimeStampResponseCommand = 
-                            Serializer.DeserializeWithLengthPrefix<FileTimeStampResponseCommand>(stream, PrefixStyle.Base128);
+                            Serializer.DeserializeWithLengthPrefix<FileTimeStampResponseCommand>(responseStream, PrefixStyle.Base128);
 
                         if (fileTimeStampResponseCommand.timeStamp == null)
                             Console.WriteLine("null time stamp from " + node.HostName);
