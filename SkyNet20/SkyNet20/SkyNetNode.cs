@@ -1642,12 +1642,7 @@ namespace SkyNet20
 
             foreach (var deletion in deletions)
             {
-                machineList.TryGetValue(deletion.Key, out SkyNetNodeInfo value);
-
-                if (DateTime.UtcNow - new DateTime(value.LastHeartbeat) < TimeSpan.FromMilliseconds(SkyNetConfiguration.HeartbeatTimeout))
-                    continue;
-
-                machineList.TryRemove(deletion.Key, out value);
+                machineList.TryRemove(deletion.Key, out SkyNetNodeInfo value);
 
                 this.LogVerbose($"Removed {deletion.Key} ({deletion.Value.HostName}) from membership list.");
 
