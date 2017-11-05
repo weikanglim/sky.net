@@ -1023,6 +1023,7 @@ namespace SkyNet20
                 // Enter the listening loop.
                 while (true)
                 {
+                    Console.WriteLine("Index File server started... ");
                     this.Log("Index File server started... ");
 
                     // Perform a blocking call to accept requests.
@@ -1041,6 +1042,7 @@ namespace SkyNet20
 
                         using (MemoryStream retStream = new MemoryStream(bytes))
                         {
+                            Console.WriteLine("Index File Received... ");
                             SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
                             string machineId = packetHeader.MachineId;
                             this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
