@@ -1663,13 +1663,11 @@ namespace SkyNet20
                     this.LogVerbose($"Updated {update.Key} ({update.Value.HostName}) last heartbeat to {itemToUpdate.LastHeartbeat}");
                 }
             }
-
-            Console.WriteLine("Looking for Master Update");
+            
             foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in listToMerge)
             {
                 if (machineList.TryGetValue(kvp.Key, out SkyNetNodeInfo itemToUpdate))
                 {
-                    Console.WriteLine("Master Update");
                     if (itemToUpdate.Status == Status.Alive && kvp.Value.IsMaster)
                     {
                         itemToUpdate.IsMaster = kvp.Value.IsMaster;
