@@ -543,12 +543,25 @@ namespace SkyNet20
                     // Send a Time Stamp command to all the machines with that file
                     SkyNetNodeInfo recoveryFileFromNode = ProcessLocationOfRecoveryFile(kvp.Value.Item1, kvp.Key);
 
+                    if (recoveryFileFromNode == null)
+                    {
+                        Console.WriteLine("Node not available for recovery");
+                        continue;
+                    }
+                    else
+                        Console.WriteLine($"Recovery Node: {recoveryFileFromNode.HostName}");
+                        
                     // update list with a new node
                     SkyNetNodeInfo recoveryFileToNode = ChooseRandomNode(kvp.Value.Item1);
-                    kvp.Value.Item1.Add(recoveryFileToNode.MachineId);
+
 
                     // The latest time stamp, send a file transfer command 
-                    SendFileTransferMessageToNode(recoveryFileFromNode, recoveryFileToNode);
+                    if (SendFileTransferMessageToNode(recoveryFileFromNode, recoveryFileToNode))
+                        Console.WriteLine("File sent");
+                    else
+                        Console.WriteLine("File not sent");
+
+                    kvp.Value.Item1.Add(recoveryFileToNode.MachineId);
                 }
             }
 
@@ -1729,10 +1742,41 @@ namespace SkyNet20
                 NodeRecoveryIndexFileTransferServer(),
                 NodeRecoveryTimeStampServer(),
                 NodeRecoveryTransferRequestServer(),
+                TestFileIndex(),
                 
             };
 
             Task.WaitAll(serverTasks.ToArray());
+        }
+
+        private bool Test = true;
+
+        public async Task TestFileIndex()
+        {
+            while (!this.isConnected)
+            {
+                await Task.Delay(10);
+            }
+
+            await Task.Delay(3000);
+
+            if (!this.Test)
+                return;
+
+            if (this.GetMasterNodes().Count < 3)
+            {
+                List<string> testnodes = new List<string>();
+
+                foreach (SkyNetNodeInfo node in this.GetMasterNodes().Values)
+                {
+                    testnodes.Add(node.MachineId);
+                }
+
+                this.indexFile.Add("DEF", new Tuple<List<string>, DateTime?, DateTime>(
+                    testnodes,
+                    DateTime.Now,
+                    DateTime.Now));
+            }
         }
 
         public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
