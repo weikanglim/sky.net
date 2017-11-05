@@ -706,6 +706,18 @@ namespace SkyNet20
         {
             string machineId = string.Empty;
 
+            foreach(string machine in this.machineList.Keys)
+            {
+                if (!exclusionNodes.Contains(machine))
+                {
+                    if (this.machineList[machine].Status == Status.Alive)
+                        return this.machineList[machine];
+                }
+                
+            }
+
+            Console.WriteLine("Error choosing random node");
+
             // TODO: Test
             Console.WriteLine("Choosing Random Node");
 
