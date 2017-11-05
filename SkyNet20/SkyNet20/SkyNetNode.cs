@@ -474,6 +474,13 @@ namespace SkyNet20
         private bool ProcessNodeFailureFileRecovery(SkyNetNodeInfo failedNode)
         {
             Console.WriteLine($"Node Fail: {failedNode.HostName}");
+
+            if (failedNode.Status == Status.Alive)
+            {
+                Console.WriteLine("Switched node to failed");
+                failedNode.Status = Status.Failed;
+            }
+
             // Is current node a master, else dont process failure
             if (!this.machineList.ContainsKey(this.machineId))
                 return true;
@@ -1646,10 +1653,10 @@ namespace SkyNet20
 
                 this.LogVerbose($"Removed {deletion.Key} ({deletion.Value.HostName}) from membership list.");
 
-                if (!ProcessNodeFailureFileRecovery(value))
-                {
-                    this.LogImportant($"{value.MachineId} files have failed to recovered .");
-                }
+                //if (!ProcessNodeFailureFileRecovery(value))
+                //{
+                //    this.LogImportant($"{value.MachineId} files have failed to recovered .");
+                //}
             }
 
             foreach (var update in updates)
