@@ -702,6 +702,9 @@ namespace SkyNet20
         {
             string machineId = string.Empty;
 
+            // TODO: Test
+            Console.WriteLine("Choosing Random Node");
+
             IEnumerable<KeyValuePair<string, SkyNetNodeInfo>> keyValuePairs = this.machineList.Where(x => x.Value.Status == Status.Alive);
             List<KeyValuePair<string, SkyNetNodeInfo>> machineListKeys = keyValuePairs.ToList();
 
@@ -1661,10 +1664,12 @@ namespace SkyNet20
                 }
             }
 
+            Console.WriteLine("Looking for Master Update");
             foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in listToMerge)
             {
                 if (machineList.TryGetValue(kvp.Key, out SkyNetNodeInfo itemToUpdate))
                 {
+                    Console.WriteLine("Master Update");
                     if (itemToUpdate.Status == Status.Alive && kvp.Value.IsMaster)
                     {
                         itemToUpdate.IsMaster = kvp.Value.IsMaster;
