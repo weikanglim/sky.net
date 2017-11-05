@@ -1011,8 +1011,8 @@ namespace SkyNet20
                 {
                     this.LogError($"Node Recovery Server not started at {machineId}");
                 }
-
-                this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
+                else
+                    this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
 
                 try
                 {
