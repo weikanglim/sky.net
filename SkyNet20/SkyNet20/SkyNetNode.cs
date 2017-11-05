@@ -702,13 +702,14 @@ namespace SkyNet20
         {
             string machineId = string.Empty;
 
-            List<string> machineListKeys = this.machineList.Keys.ToList();
+            IEnumerable<KeyValuePair<string, SkyNetNodeInfo>> keyValuePairs = this.machineList.Where(x => x.Value.Status == Status.Alive);
+            List<KeyValuePair<string, SkyNetNodeInfo>> machineListKeys = keyValuePairs.ToList();
 
             do
             {
                 Random random = new Random();
                 int n = random.Next(machineListKeys.Count -1);
-                machineId = machineListKeys[n];
+                machineId = machineListKeys[n].Key;
             }
             while (exclusionNodes.Contains(machineId));
 
@@ -1487,8 +1488,10 @@ namespace SkyNet20
                     IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
                     foreach (SkyNetNodeInfo node in masters)
                     {
-                        Console.WriteLine(node.HostName);
+                        Console.WriteLine("Master:" + node.HostName);
                     }
+
+                    Console.WriteLine("Active:" + this.GetActiveMaster().HostName);
 
                     //Console.WriteLine("[Delete <filename>] Delete File");
 
@@ -1653,6 +1656,17 @@ namespace SkyNet20
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
                     this.LogVerbose($"Updated {update.Key} ({update.Value.HostName}) last heartbeat to {itemToUpdate.LastHeartbeat}");
+                }
+            }
+
+            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in listToMerge)
+            {
+                if (machineList.TryGetValue(kvp.Key, out SkyNetNodeInfo itemToUpdate))
+                {
+                    if (itemToUpdate.Status == Status.Alive && kvp.Value.IsMaster)
+                    {
+                        itemToUpdate.IsMaster = kvp.Value.IsMaster;
+                    }
                 }
             }
         }
