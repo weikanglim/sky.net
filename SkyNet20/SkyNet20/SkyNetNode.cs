@@ -1478,6 +1478,14 @@ namespace SkyNet20
                     Console.WriteLine("[2] Show machine id");
                     Console.WriteLine("[3] Join the group");
                     Console.WriteLine("[4] Leave the group");
+
+                    // TODO: Test - Remove later
+                    Console.WriteLine();
+                    foreach (SkyNetNodeInfo node in this.GetMasterNodes().Values)
+                    {
+                        Console.WriteLine(node.HostName);
+                    }
+
                     //Console.WriteLine("[Delete <filename>] Delete File");
 
                     string cmd = await ReadConsoleAsync();
