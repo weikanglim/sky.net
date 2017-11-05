@@ -509,7 +509,7 @@ namespace SkyNet20
                 SkyNetNodeInfo selectedMasterNode = ChooseRandomNode(masterNodes);
                 selectedMasterNode.IsMaster = true;
 
-                // TODO: Master - Send Index File
+                // TODO: Master - Send Index File (also send index file after put and delete
             }
 
             return true;
