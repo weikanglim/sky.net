@@ -950,7 +950,7 @@ namespace SkyNet20
                 // Enter the listening loop.
                 while (true)
                 {
-                    this.Log("Time stamp server started... ");
+                    this.Log("Transfer file server started... ");
 
                     // Perform a blocking call to accept requests.
                     // You could also user server.AcceptSocket() here.
