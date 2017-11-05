@@ -717,12 +717,16 @@ namespace SkyNet20
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
 
+
+
                     byte[] responseMessage = new byte[256];
 
-
                     Int32 bytes = stream.Read(responseMessage, 0, responseMessage.Length);
-                    retValue = BitConverter.ToBoolean(responseMessage, 0);
 
+                    Console.WriteLine("File Transfer request successful");
+
+                    if (bytes > 0)
+                        return true;
                 }
             }
             catch (SocketException se)
@@ -970,6 +974,8 @@ namespace SkyNet20
                     NetworkStream stream = client.GetStream();
 
                     int i;
+
+                    Console.WriteLine("File Transfer Message Received");
 
                     // Loop to receive all the data sent by the client.
                     while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
