@@ -69,6 +69,14 @@ namespace SkyNet20
             }
         }
 
+        public static int FileIndexTransferPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["FileIndexTransferPort"]);
+            }
+        }
+
         public static int TimeStampPort
         {
             get

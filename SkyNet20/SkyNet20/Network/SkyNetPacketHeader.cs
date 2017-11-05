@@ -21,7 +21,8 @@ namespace SkyNet20.Network
         FileTimeStampResponse,
         FileTimeStampRequest,
         FileTransferRequest,
-        FileTransferResponse
+        FileTransferResponse,
+        FileIndexTransferRequest,
     }
 
     [ProtoContract]

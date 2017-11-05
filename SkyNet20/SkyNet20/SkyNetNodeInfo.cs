@@ -68,6 +68,13 @@ namespace SkyNet20
             }
         }
 
+        public IPEndPoint FileIndexTransferRequestEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.FileTransferPort);
+            }
+        }
 
         public static string GetMachineId(IPAddress address)
         {
