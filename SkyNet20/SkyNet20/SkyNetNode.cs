@@ -322,6 +322,91 @@ namespace SkyNet20
 
 
         /// Get
+        private async Task<bool> ProcessGetFromClient(string filename)
+        {
+            return await SendGetFileCommandFromMasterToNodes(filename);
+        }
+        private async Task<bool> SendGetFileCommandFromMasterToNodes(string filename)
+        {
+            // Get the machines that hold this file
+            if (!this.indexFile.ContainsKey(filename))
+            {
+                this.LogVerbose($"Sending get file command aborted, missing filename" +
+                    $", {filename}, in indexfile");
+                return false;
+            }
+
+            Tuple<List<string>, DateTime?, DateTime> index = this.indexFile[filename];
+
+            List<SkyNetNodeInfo> nodes = new List<SkyNetNodeInfo>();
+
+            foreach (string machine in index.Item1)
+            {
+                if (!this.machineList.ContainsKey(machine))
+                    continue;
+
+                SkyNetNodeInfo skyNetNodeInfo = this.machineList[machine];
+                nodes.Add(skyNetNodeInfo);
+            }
+
+            byte[] message;
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                SkyNetPacketHeader header = new SkyNetPacketHeader
+                {
+                    MachineId = this.machineId,
+                    PayloadType = PayloadType.DeleteFile,
+                };
+
+                GetFileCommand getFileCommand = new GetFileCommand
+                {
+                    filename = filename,
+                };
+
+                Serializer.SerializeWithLengthPrefix(stream, header, PrefixStyle.Base128);
+                Serializer.SerializeWithLengthPrefix(stream, getFileCommand, PrefixStyle.Base128);
+
+                message = stream.ToArray();
+            }
+
+            List<Task<GetFileResponseCommand>> tasks = new List<Task<GetFileResponseCommand>>();
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                SkyNetNodeInfo node = nodes[i];
+                Task<GetFileResponseCommand> task = new Task<GetFileResponseCommand>(() => { return SendGetFilePacketToNode(message, node); });
+                tasks.Add(task);
+                task.Start();
+            }
+
+            int countPassed = 0;
+            int countCompleted = 0;
+
+            while (countCompleted >= 3 || countPassed >= 2)
+            {
+                countPassed = 0;
+                countCompleted = 0;
+
+                for (int i = 0; i < tasks.Count; i++)
+                {
+                    Task<GetFileResponseCommand> task = tasks[i];
+
+                    if (task.IsCompleted)
+                    {
+                        if (task.Result != null && task.Result.response == GetFileResponse.OK)
+                        {
+                            await File.WriteAllBytesAsync(filename, task.Result.content);
+                            countPassed++;
+                        }
+                        else
+                            countCompleted++;
+                    }
+                }
+            }
+
+            return countPassed >= 2;
+        }
         private GetFileResponseCommand SendGetFilePacketToNode(byte[] message, SkyNetNodeInfo node)
         {
             GetFileResponseCommand response = null;
@@ -1162,23 +1247,31 @@ namespace SkyNet20
                     {
                         case PayloadType.GetFile:
                             GetFileCommand getFileCommand = Serializer.DeserializeWithLengthPrefix<GetFileCommand>(stream, PrefixStyle.Base128);
-                            GetFileResponseCommand responseCommand = new GetFileResponseCommand
-                            {
-                                fileExists = false
-                            };
+                            GetFileResponseCommand responseCommand = new GetFileResponseCommand();
                             string getFileName = getFileCommand.filename;
                             byte[] fileResponse;
                             using (MemoryStream ms = new MemoryStream())
                             {
-                                if (Storage.Exists(getFileName))
+                                bool fileExists = Storage.Exists(getFileName);
+                                bool freshCopy = fileExists && (Storage.LastModified(getFileName) - getFileCommand.lastModifiedDateTime).Duration() < TimeSpan.FromSeconds(15);
+
+                                if (fileExists && freshCopy)
                                 {
-                                    responseCommand.fileExists = true;
+                                    responseCommand.response = GetFileResponse.OK;
                                     responseCommand.content = await Storage.ReadContentAsync(getFileName);
+
+                                    Serializer.SerializeWithLengthPrefix<GetFileResponseCommand>(ms, responseCommand, PrefixStyle.Base128);
+                                }
+                                else if (!freshCopy)
+                                {
+                                    responseCommand.response = GetFileResponse.NotUpToDate;
 
                                     Serializer.SerializeWithLengthPrefix<GetFileResponseCommand>(ms, responseCommand, PrefixStyle.Base128);
                                 }
                                 else
                                 {
+                                    responseCommand.response = GetFileResponse.DoesNotExist;
+
                                     Serializer.SerializeWithLengthPrefix<GetFileResponseCommand>(ms, responseCommand, PrefixStyle.Base128);
                                 }
 
@@ -1189,7 +1282,7 @@ namespace SkyNet20
                         case PayloadType.PutFile:
                             PutFileCommand putFileCommand = Serializer.DeserializeWithLengthPrefix<PutFileCommand>(stream, PrefixStyle.Base128);
 
-                            await Storage.WriteAsync(putFileCommand.content, putFileCommand.filename);
+                            await Storage.StageAsync(putFileCommand.content, putFileCommand.filename);
 
                             //!TODO what do we do with this?
                             DateTime instructionTime = putFileCommand.instructionTime;
@@ -1197,6 +1290,7 @@ namespace SkyNet20
                             // Send back a response.
                             byte[] putFileAck = BitConverter.GetBytes(true);
                             await stream.WriteAsync(putFileAck, 0, putFileAck.Length);
+                            Storage.MoveStagingToStorage(putFileCommand.filename);
 
                             break;
 

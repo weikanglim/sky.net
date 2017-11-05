@@ -41,7 +41,7 @@ namespace SkyNet20.SDFS
 
         public static void MoveStagingToStorage(string filename)
         {
-            string stagedFile = stagingDirectory + Path.DirectorySeparatorChar + filename;
+            string stagedFile = GetStagingFilePath(filename);
 
             if (!File.Exists(stagedFile))
             {
@@ -50,7 +50,7 @@ namespace SkyNet20.SDFS
 
             Directory.Move(
                 stagedFile,
-                storageDirectory + Path.DirectorySeparatorChar + filename);
+                GetStoredFilePath(filename));
         }
 
         public static async Task WriteAsync(byte[] payload, string filename)
@@ -60,6 +60,15 @@ namespace SkyNet20.SDFS
                 await fs.WriteAsync(payload, 0, payload.Length);
             }
         }
+
+        public static async Task StageAsync(byte[] payload, string filename)
+        {
+            using (FileStream fs = File.Create(GetStagingFilePath(filename)))
+            {
+                await fs.WriteAsync(payload, 0, payload.Length);
+            }
+        }
+
 
         public static bool Exists(string filename)
         {
@@ -91,7 +100,12 @@ namespace SkyNet20.SDFS
             return StorageDirectory + Path.DirectorySeparatorChar + filename;
         }
 
-        private static string GetStagingilePath(string filename)
+        public static DateTime LastModified(string filename)
+        {
+            return new FileInfo(GetStoredFilePath(filename)).LastWriteTime;
+        }
+
+        private static string GetStagingFilePath(string filename)
         {
             return StagingDirectory + Path.DirectorySeparatorChar + filename;
         }
