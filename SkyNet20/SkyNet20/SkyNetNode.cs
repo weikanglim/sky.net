@@ -656,7 +656,7 @@ namespace SkyNet20
                 SkyNetPacketHeader header = new SkyNetPacketHeader
                 {
                     MachineId = this.machineId,
-                    PayloadType = PayloadType.PutFile,
+                    PayloadType = PayloadType.FileTransferRequest,
                 };
 
                 FileTransferRequestCommand fileCommand = new FileTransferRequestCommand()
@@ -720,7 +720,7 @@ namespace SkyNet20
                 SkyNetPacketHeader header = new SkyNetPacketHeader
                 {
                     MachineId = this.machineId,
-                    PayloadType = PayloadType.PutFile,
+                    PayloadType = PayloadType.FileIndexTransferRequest,
                 };
 
                 IndexFileCommand fileCommand = new IndexFileCommand()
@@ -754,7 +754,6 @@ namespace SkyNet20
 
                     Int32 bytes = stream.Read(responseMessage, 0, responseMessage.Length);
                     retValue = BitConverter.ToBoolean(responseMessage, 0);
-
                 }
             }
             catch (SocketException se)
