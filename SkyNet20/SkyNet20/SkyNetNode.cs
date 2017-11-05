@@ -532,6 +532,8 @@ namespace SkyNet20
 
         private bool ProcessNodeFailFileRecovery(SkyNetNodeInfo failedNode)
         {
+            Console.WriteLine($"index file count: {this.indexFile.Count}");
+
             foreach (KeyValuePair<string, Tuple<List<string>, DateTime?, DateTime>> kvp
                 in this.indexFile)
             {
