@@ -60,6 +60,14 @@ namespace SkyNet20
             }
         }
 
+        public IPEndPoint NodeToNodeEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.NodeToNodePort);
+            }
+        }
+
         public IPEndPoint FileTransferRequestEndPoint
         {
             get

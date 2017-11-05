@@ -628,7 +628,7 @@ namespace SkyNet20
             // TODO: might need to have continuous while loop          
             try
             {
-                using (TcpClient tcpClient = new TcpClient(node.TimeStampEndPoint))
+                using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.TimeStampPort))
                 {
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
@@ -699,7 +699,7 @@ namespace SkyNet20
 
             try
             {
-                using (TcpClient tcpClient = new TcpClient(nodeFrom.TimeStampEndPoint))
+                using (TcpClient tcpClient = new TcpClient(nodeFrom.HostName, SkyNetConfiguration.FileTransferPort))
                 {
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
