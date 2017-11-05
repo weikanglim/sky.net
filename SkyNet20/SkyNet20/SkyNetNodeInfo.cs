@@ -39,8 +39,7 @@ namespace SkyNet20
         public Status Status { get; set; }
         [ProtoMember(4)]
         public long HeartbeatCounter { get; set; }
-        // !TODO: Do we send these in gossip?
-        public bool IsActiveMaster { get; set; }
+        [ProtoMember(5)]
         public bool IsMaster { get; set; }
 
         public IPAddress IPAddress { get; set; }
@@ -53,6 +52,29 @@ namespace SkyNet20
             }
         }
 
+        public IPEndPoint TimeStampEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.TimeStampPort);
+            }
+        }
+
+        public IPEndPoint FileTransferRequestEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.FileTransferPort);
+            }
+        }
+
+        public IPEndPoint FileIndexTransferRequestEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.FileTransferPort);
+            }
+        }
 
         public IPEndPoint SdfsEndPoint
         {

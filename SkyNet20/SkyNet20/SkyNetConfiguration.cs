@@ -61,6 +61,30 @@ namespace SkyNet20
             }
         }
 
+        public static int FileTransferPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["FileTransferPort"]);
+            }
+        }
+
+        public static int FileIndexTransferPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["FileIndexTransferPort"]);
+            }
+        }
+
+        public static int TimeStampPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["TimeStampPort"]);
+            }
+        }
+
         /// <summary>
         /// The default port used by <see cref="SkyNetNode"/> instances
         /// </summary>
@@ -169,28 +193,6 @@ namespace SkyNet20
             get
             {
                 return Int32.Parse(ConfigurationManager.AppSettings["SdfsPort"]);
-            }
-        }
-
-        /// <summary>
-        /// Lower bound of transfer ports used by distributed file system storage.
-        /// </summary>
-        public static int SdfsTransferPortLowerBound
-        {
-            get
-            {
-                return Int32.Parse(ConfigurationManager.AppSettings["SdfsTransferPorts"].Split("-")[0]);
-            }
-        }
-
-        /// <summary>
-        /// Upper bound of transfer ports used by distributed file system storage.
-        /// </summary>
-        public static int SdfsTransferPortUpperBound
-        {
-            get
-            {
-                return Int32.Parse(ConfigurationManager.AppSettings["SdfsTransferPorts"].Split("-")[1]);
             }
         }
     }
