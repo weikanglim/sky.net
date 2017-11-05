@@ -494,11 +494,13 @@ namespace SkyNet20
 
             // Process Recovery
             if (!ProcessNodeFailFileRecovery(failedNode))
-                return false;
+                Console.WriteLine("TODO: What happens if node recovery fails"); ;
 
+            Console.WriteLine("Is deleted node a master?");
             // elect a new master if the failed node is a master
             if (failedNode.IsMaster)
             {
+                Console.WriteLine("Yes");
                 // elect a new master
                 List<string> masterNodes = new List<string>();
                 foreach (SkyNetNodeInfo node in GetMasterNodes().Values)
@@ -507,6 +509,7 @@ namespace SkyNet20
                 }
 
                 SkyNetNodeInfo selectedMasterNode = ChooseRandomNode(masterNodes);
+                Console.WriteLine($"New Master: {selectedMasterNode.HostName}");
                 selectedMasterNode.IsMaster = true;
 
                 // TODO: Master - Send Index File (also send index file after put and delete
