@@ -1491,7 +1491,7 @@ namespace SkyNet20
                         Console.WriteLine("Master:" + node.HostName);
                     }
 
-                    Console.WriteLine("Active:" + this.GetActiveMaster().HostName);
+                    //Console.WriteLine("Active:" + this.GetActiveMaster().HostName);
 
                     //Console.WriteLine("[Delete <filename>] Delete File");
 
