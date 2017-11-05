@@ -522,7 +522,8 @@ namespace SkyNet20
                     selectedMasterNode.IsMaster = true;
 
                 // TODO: Master - Send Index File (also send index file after put and delete)
-                SendFileIndexFileMessageToNode(selectedMasterNode);
+                if (SendFileIndexFileMessageToNode(selectedMasterNode))
+                    Console.WriteLine("Index File Message Failed");
             }
 
             return true;
