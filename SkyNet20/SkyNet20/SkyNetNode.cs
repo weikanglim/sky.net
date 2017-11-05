@@ -1639,6 +1639,11 @@ namespace SkyNet20
                         continue;
                     }
 
+                    if (itemToUpdate.Status == Status.Alive && incomingUpdate.IsMaster)
+                    {
+                        itemToUpdate.IsMaster = incomingUpdate.IsMaster;
+                    }
+
                     itemToUpdate.HeartbeatCounter = itemToUpdate.HeartbeatCounter + 1;
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
