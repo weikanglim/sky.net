@@ -808,25 +808,25 @@ namespace SkyNet20
         /// Node Recovery Servers
         private async Task NodeRecoveryTimeStampServer()
         {
-            TcpListener server = null;
+            while (!this.isConnected)
+            {
+                await Task.Delay(10);
+            }
+
+            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.TimeStampPort);
+
+            // Start listening for client requests.
+            server.Start();
 
             if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
             {
                 this.LogError($"Node Recovery Server not started at {machineId}");
             }
+            else
+                this.Log($"Node Recovery Server at {currentNode.TimeStampEndPoint}");
 
             try
             {
-                // Set the TcpListener on port 13000.
-                //Int32 port = 13000;
-                //IPAddress localAddr = IPAddress.Parse("127.0.0.1");
-
-                // TcpListener server = new TcpListener(port);
-                server = new TcpListener(currentNode.TimeStampEndPoint);
-
-                // Start listening for client requests.
-                server.Start();
-
                 // Buffer for reading data
                 Byte[] bytes = new Byte[512];
 
@@ -900,29 +900,29 @@ namespace SkyNet20
             {
                 Console.WriteLine("SocketException: {0}", e);
             }
-            finally
-            {
-                // Stop listening for new clients.
-                server.Stop();
-            }
         }
 
         private async Task NodeRecoveryTransferRequestServer()
         {
-            TcpListener server = null;
+            while (!this.isConnected)
+            {
+                await Task.Delay(10);
+            }
+
+            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileTransferPort);
+
+            // Start listening for client requests.
+            server.Start();
 
             if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
             {
                 this.LogError($"Node Recovery Server not started at {machineId}");
             }
+            else
+                this.Log($"Node Recovery Server at {currentNode.FileTransferRequestEndPoint}");
 
             try
             {
-                server = new TcpListener(currentNode.FileTransferRequestEndPoint);
-
-                // Start listening for client requests.
-                server.Start();
-
                 // Buffer for reading data
                 Byte[] bytes = new Byte[512];
 
@@ -994,11 +994,6 @@ namespace SkyNet20
             catch (SocketException e)
             {
                 Console.WriteLine("SocketException: {0}", e);
-            }
-            finally
-            {
-                // Stop listening for new clients.
-                server.Stop();
             }
         }
 
