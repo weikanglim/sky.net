@@ -1481,7 +1481,7 @@ namespace SkyNet20
 
                     // TODO: Test - Remove later
                     Console.WriteLine();
-                    foreach (SkyNetNodeInfo node in this.GetMasterNodes().Values)
+                    foreach (SkyNetNodeInfo node in this.machineList.Values.Where(x => x.IsMaster = true && x.Status == Status.Alive))
                     {
                         Console.WriteLine(node.HostName);
                     }
