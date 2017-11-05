@@ -660,6 +660,11 @@ namespace SkyNet20
                         FileTimeStampResponseCommand fileTimeStampResponseCommand = 
                             Serializer.DeserializeWithLengthPrefix<FileTimeStampResponseCommand>(stream, PrefixStyle.Base128);
 
+                        if (fileTimeStampResponseCommand.timeStamp == null)
+                            Console.WriteLine("null time stamp from " + node.HostName);
+                        else
+                            Console.WriteLine(fileTimeStampResponseCommand.timeStamp.Value.ToString() +" time from " + node.HostName);
+
                         return fileTimeStampResponseCommand.timeStamp;
                     }
                         
@@ -904,6 +909,7 @@ namespace SkyNet20
                         // TODO: Find the date time for the file
                         byte[] retmessage;
 
+                        Console.WriteLine("Preparing Time Stamp Response");
                         using (MemoryStream resStream = new MemoryStream())
                         {
                             SkyNetPacketHeader header = new SkyNetPacketHeader
@@ -922,10 +928,12 @@ namespace SkyNet20
                             Serializer.SerializeWithLengthPrefix(resStream, fileCommand, PrefixStyle.Base128);
 
                             retmessage = resStream.ToArray();
+                            Console.WriteLine("Finished Preparing Time Stamp Response");
                         }
 
                         // Send back a response.
                         stream.Write(retmessage, 0, retmessage.Length);
+                        Console.WriteLine("Sent Time Stamp Response");
                     }
 
                     // Shutdown and end connection
