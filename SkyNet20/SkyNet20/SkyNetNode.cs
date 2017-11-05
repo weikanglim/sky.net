@@ -1607,6 +1607,11 @@ namespace SkyNet20
                     return oldValue;
                 });
 
+                if (nodeToAdd.Status == Status.Alive && addition.Value.IsMaster)
+                {
+                    nodeToAdd.IsMaster = addition.Value.IsMaster;
+                }
+
                 this.LogVerbose($"Added {addition.Key} ({addition.Value.HostName}) to membership list.");
             }
 
