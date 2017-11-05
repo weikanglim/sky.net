@@ -473,6 +473,7 @@ namespace SkyNet20
         //// Node Failure
         private bool ProcessNodeFailureFileRecovery(SkyNetNodeInfo failedNode)
         {
+            Console.WriteLine($"Node Fail: {failedNode.HostName}");
             // Is current node a master, else dont process failure
             if (!this.machineList.ContainsKey(this.machineId))
                 return true;
