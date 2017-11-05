@@ -1735,9 +1735,10 @@ namespace SkyNet20
                 DisseminateMembershipList(),
                 PeriodicHeartBeat(),
 
+                NodeRecoveryIndexFileTransferServer(),
                 NodeRecoveryTimeStampServer(),
                 NodeRecoveryTransferRequestServer(),
-                NodeRecoveryIndexFileTransferServer()
+                
             };
 
             Task.WaitAll(serverTasks.ToArray());
