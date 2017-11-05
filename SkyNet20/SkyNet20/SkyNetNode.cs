@@ -519,11 +519,12 @@ namespace SkyNet20
                 SkyNetNodeInfo selectedMasterNode = ChooseRandomNode(masterNodes);
                 Console.WriteLine($"New Master: {selectedMasterNode.HostName}");
                 if (selectedMasterNode != null)
+                {
                     selectedMasterNode.IsMaster = true;
 
-                // TODO: Master - Send Index File (also send index file after put and delete)
-                if (!SendFileIndexFileMessageToNode(selectedMasterNode))
-                    Console.WriteLine("Index File Message Failed");
+                    if (!SendFileIndexFileMessageToNode(selectedMasterNode))
+                        Console.WriteLine("Index File Message Failed");
+                }
             }
 
             return true;
