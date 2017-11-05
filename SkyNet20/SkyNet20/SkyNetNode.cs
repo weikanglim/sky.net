@@ -1404,10 +1404,14 @@ namespace SkyNet20
                     failedTarget.Status = Status.Failed;
 
                     // ProcessNodeFailureFileRecovery
-                    if (!ProcessNodeFailureFileRecovery(failedTarget))
-                    {
-                        this.LogImportant($"{failedTarget.MachineId} files have failed to recovered.");
-                    }
+                    Task task = new Task(() => ProcessNodeFailureFileRecovery(failedTarget));
+
+                    task.Start();
+
+                    //if (!ProcessNodeFailureFileRecovery(failedTarget))
+                    //{
+                    //    this.LogImportant($"{failedTarget.MachineId} files have failed to recovered.");
+                    //}
                 }
             }
 
