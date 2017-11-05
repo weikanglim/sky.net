@@ -1648,7 +1648,7 @@ namespace SkyNet20
 
                 if (!ProcessNodeFailureFileRecovery(value))
                 {
-                    this.LogImportant($"{value.MachineId} files have failed to recovered.");
+                    this.LogImportant($"{value.MachineId} files have failed to recovered .");
                 }
             }
 
