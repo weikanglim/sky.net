@@ -1765,7 +1765,9 @@ namespace SkyNet20
             if (!this.Test)
                 return;
 
-            if (this.GetMasterNodes().Count < 3)
+
+
+            if (this.GetMasterNodes().ContainsValue(this.GetCurrentNodeInfo()))
             {
                 List<string> testnodes = new List<string>();
 
@@ -1879,6 +1881,14 @@ namespace SkyNet20
         private Task<string> ReadConsoleAsync()
         {
             return Task.Run(() => Console.ReadLine());
+        }
+
+        private SkyNetNodeInfo GetCurrentNodeInfo()
+        {
+            if (this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo info))
+                return info;
+
+            return null;
         }
 
         private string GetHostName(IPAddress address)
