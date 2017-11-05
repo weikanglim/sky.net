@@ -1003,74 +1003,79 @@ namespace SkyNet20
 
         private async Task NodeRecoveryIndexFileTransferServer()
         {
-            TcpListener server = null;
-
-            if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
+            while(true)
             {
-                this.LogError($"Node Recovery Server not started at {machineId}");
-            }
+                TcpListener server = null;
 
-            try
-            {
-                server = new TcpListener(currentNode.FileIndexTransferRequestEndPoint);
-
-                // Start listening for client requests.
-                server.Start();
-
-                // Buffer for reading data
-                Byte[] bytes = new Byte[512];
-
-                // Enter the listening loop.
-                while (true)
+                if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
                 {
-                    Console.WriteLine("Index File server started... ");
-                    this.Log("Index File server started... ");
+                    this.LogError($"Node Recovery Server not started at {machineId}");
+                }
 
-                    // Perform a blocking call to accept requests.
-                    // You could also user server.AcceptSocket() here.
-                    TcpClient client = await server.AcceptTcpClientAsync();
+                this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
 
-                    // Get a stream object for reading and writing
-                    NetworkStream stream = client.GetStream();
+                try
+                {
+                    server = new TcpListener(currentNode.FileIndexTransferRequestEndPoint);
 
-                    int i;
+                    // Start listening for client requests.
+                    server.Start();
 
-                    // Loop to receive all the data sent by the client.
-                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
+                    // Buffer for reading data
+                    Byte[] bytes = new Byte[512];
+
+                    // Enter the listening loop.
+                    while (true)
                     {
-                        PayloadType payloadType;
+                        Console.WriteLine("Index File server started... ");
+                        this.Log("Index File server started... ");
 
-                        using (MemoryStream retStream = new MemoryStream(bytes))
+                        // Perform a blocking call to accept requests.
+                        // You could also user server.AcceptSocket() here.
+                        TcpClient client = await server.AcceptTcpClientAsync();
+
+                        // Get a stream object for reading and writing
+                        NetworkStream stream = client.GetStream();
+
+                        int i;
+
+                        // Loop to receive all the data sent by the client.
+                        while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
                         {
-                            Console.WriteLine("Index File Received... ");
-                            SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
-                            string machineId = packetHeader.MachineId;
-                            this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                            PayloadType payloadType;
 
-                            payloadType = packetHeader.PayloadType;
+                            using (MemoryStream retStream = new MemoryStream(bytes))
+                            {
+                                Console.WriteLine("Index File Received... ");
+                                SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
+                                string machineId = packetHeader.MachineId;
+                                this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
-                            IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
-                            this.indexFile = indexFileCommand.indexFile;
+                                payloadType = packetHeader.PayloadType;
+
+                                IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
+                                this.indexFile = indexFileCommand.indexFile;
+                            }
+
+
+                            // Send back a response.
+                            byte[] retmessage = BitConverter.GetBytes(true);
+                            stream.Write(retmessage, 0, retmessage.Length);
                         }
 
-
-                        // Send back a response.
-                        byte[] retmessage = BitConverter.GetBytes(true);
-                        stream.Write(retmessage, 0, retmessage.Length);
+                        // Shutdown and end connection
+                        client.Close();
                     }
-
-                    // Shutdown and end connection
-                    client.Close();
                 }
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("SocketException: {0}", e);
-            }
-            finally
-            {
-                // Stop listening for new clients.
-                server.Stop();
+                catch (SocketException e)
+                {
+                    Console.WriteLine("SocketException: {0}", e);
+                }
+                finally
+                {
+                    // Stop listening for new clients.
+                    server.Stop();
+                }
             }
         }
 
