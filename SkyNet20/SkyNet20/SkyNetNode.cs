@@ -602,9 +602,13 @@ namespace SkyNet20
                 {
                     if (this.machineList.TryGetValue(machineId, out SkyNetNodeInfo value))
                     {
+                        Console.WriteLine($"Asking for timestame of ${filename} at {value.HostName}");
                         DateTime? dt = SendTimeStampPacketToNode(message, value);
+                        
                         if (dt != null)
                         {
+                            Console.WriteLine($"{dt.Value.ToString()}");
+
                             if (DateTime.Compare((DateTime)dt, retTime) > 0)
                             {
                                 retTime = (DateTime)dt;
@@ -856,6 +860,8 @@ namespace SkyNet20
 
                     // Get a stream object for reading and writing
                     NetworkStream stream = client.GetStream();
+
+                    Console.WriteLine("Time Stamp request received");
 
                     int i;
 
