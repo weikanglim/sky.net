@@ -175,13 +175,13 @@ namespace SkyNet20
 
         /// Put
         
-        private OperationResult ProcessPutFromClient(string filename, byte[] content)
+        private async Task<OperationResult> ProcessPutFromClient(string filename, byte[] content)
         {
             DateTime timestamp = DateTime.UtcNow;
 
             // Send an Update message to those nodes
             List<SkyNetNodeInfo> nodes = GetExistingOrNewNodesForFile(filename);
-            OperationResult result = SendPutCommandToNodes(filename, content, nodes, timestamp); 
+            OperationResult result = await SendPutCommandToNodes(filename, content, nodes, timestamp); 
 
 
             if (result.success)
@@ -241,7 +241,7 @@ namespace SkyNet20
             return nodes;
         }
 
-        private OperationResult SendPutCommandToNodes(string filename, byte[] content, List<SkyNetNodeInfo> nodes, DateTime timestamp)
+        private async Task<OperationResult> SendPutCommandToNodes(string filename, byte[] content, List<SkyNetNodeInfo> nodes, DateTime timestamp)
         {
             byte[] message;
 
@@ -271,30 +271,23 @@ namespace SkyNet20
             for (int i = 0; i < nodes.Count; i++)
             {
                 SkyNetNodeInfo node = nodes[i];
-                Task<bool> task = new Task<bool>(() => { return SendPutFilePacketToNode(message, node); });
-                tasks.Add(task);
-                task.Start();
+                tasks.Add(SendPutFilePacketToNode(message, node));
             }
 
             int countPassed = 0;
-            int countCompleted = 0;
 
-            while (countCompleted < nodes.Count || countPassed < Quorum(nodes.Count))
+            while (tasks.Count > 0)
             {
-                countPassed = 0;
-                countCompleted = 0;
+                Task<bool> result = await Task.WhenAny(tasks);
 
-                for (int i = 0; i < tasks.Count; i++)
+                if (result.IsCompletedSuccessfully && result.Result)
                 {
-                    Task<bool> task = tasks[i];
-
-                    if (task.IsCompleted)
-                    {
-                        countCompleted++;
-
-                        if (task.Result)
-                            countPassed++;
-                    }
+                    countPassed++;
+                }
+                
+                if (countPassed >= Quorum(nodes.Count))
+                {
+                    break;
                 }
             }
 
@@ -309,7 +302,7 @@ namespace SkyNet20
             }
         }
 
-        private bool SendPutFilePacketToNode(byte[] message, SkyNetNodeInfo node)
+        private async Task<bool> SendPutFilePacketToNode(byte[] message, SkyNetNodeInfo node)
         {
             bool sendFileSent = false;
 
@@ -322,10 +315,10 @@ namespace SkyNet20
                     tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
                     NetworkStream stream = tcpClient.GetStream();
-                    stream.Write(message, 0, message.Length);
+                    await stream.WriteAsync(message, 0, message.Length);
 
                     byte[] putFileAck = BitConverter.GetBytes(true);
-                    stream.Read(putFileAck, 0, putFileAck.Length);
+                    await stream.ReadAsync(putFileAck, 0, putFileAck.Length);
                     sendFileSent = true;
                 }
             }
@@ -399,37 +392,30 @@ namespace SkyNet20
             for (int i = 0; i < nodes.Count; i++)
             {
                 SkyNetNodeInfo node = nodes[i];
-                Task<GetFileResponseCommand> task = new Task<GetFileResponseCommand>(() => { return SendGetFilePacketToNode(message, node); });
-                tasks.Add(task);
-                task.Start();
+                tasks.Add(SendGetFilePacketToNode(message, node));
             }
-
-            int countPassed = 0;
-            int countCompleted = 0;
+            
             bool received = false;
+            int countPassed = 0;
 
-            while (countCompleted < nodes.Count || countPassed < Quorum(nodes.Count))
+            while (tasks.Count > 0)
             {
-                countPassed = 0;
-                countCompleted = 0;
+                Task<GetFileResponseCommand> result = await Task.WhenAny(tasks);
 
-                for (int i = 0; i < tasks.Count; i++)
+                if (result.IsCompletedSuccessfully && result.Result.response == GetFileResponse.OK)
                 {
-                    Task<GetFileResponseCommand> task = tasks[i];
-
-                    if (task.IsCompleted)
+                    if (!received)
                     {
-                        if (task.Result != null && task.Result.response == GetFileResponse.OK)
-                        {
-                            if (!received)
-                            {
-                                await File.WriteAllBytesAsync(filename, task.Result.content);
-                                received = true;
-                            }
-                            countPassed++;
-                        }
-                        countCompleted++;
+                        await File.WriteAllBytesAsync(filename, result.Result.content);
+                        received = true;
                     }
+
+                    countPassed++;
+                }
+
+                if (countPassed >= Quorum(nodes.Count))
+                {
+                    break;
                 }
             }
 
@@ -442,7 +428,7 @@ namespace SkyNet20
                 return new OperationResult { success = false, errorCode = ErrorCode.UnexpectedError };
             }
         }
-        private GetFileResponseCommand SendGetFilePacketToNode(byte[] message, SkyNetNodeInfo node)
+        private async Task<GetFileResponseCommand> SendGetFilePacketToNode(byte[] message, SkyNetNodeInfo node)
         {
             GetFileResponseCommand response = null;
 
@@ -453,13 +439,13 @@ namespace SkyNet20
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
-                    tcpClient.Connect(node.StorageFileTransferEndPoint);
+                    await tcpClient.ConnectAsync(node.IPAddress, SkyNetConfiguration.FileTransferPort).WithTimeout(TimeSpan.FromMilliseconds(500));
 
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
                     stream.Flush();
 
-                    response = Serializer.DeserializeWithLengthPrefix<GetFileResponseCommand>(stream, PrefixStyle.Base128);
+                    response = await Task.Run(() => Serializer.DeserializeWithLengthPrefix<GetFileResponseCommand>(stream, PrefixStyle.Base128));
                 }
             }
             catch (SocketException se)
@@ -477,9 +463,9 @@ namespace SkyNet20
 
         //// Delete
         // Process Delete command from client (Might not need this method)
-        private OperationResult ProcessDeleteFromClient(string filename)
+        private async Task<OperationResult> ProcessDeleteFromClient(string filename)
         {
-            OperationResult result = SendDeleteFileCommandFromMasterToNodes(filename);
+            OperationResult result = await SendDeleteFileCommandFromMasterToNodes(filename);
 
             if (result.success)
             {
@@ -490,7 +476,7 @@ namespace SkyNet20
         }
 
         // Process Delete File command to nodes
-        private OperationResult SendDeleteFileCommandFromMasterToNodes(string filename)
+        private async Task<OperationResult> SendDeleteFileCommandFromMasterToNodes(string filename)
         {
             // Get the machines that hold this file
             if (!this.indexFile.ContainsKey(filename))
@@ -539,30 +525,23 @@ namespace SkyNet20
             for (int i = 0; i < nodes.Count; i++)
             {
                 SkyNetNodeInfo node = nodes[i];
-                Task<bool> task = new Task<bool>( () => { return SendDeleteFilePacketToNode(message, node); });
-                tasks.Add(task);
-                task.Start();
+                tasks.Add(SendDeleteFilePacketToNode(message, node));
             }
 
             int countPassed = 0;
-            int countCompleted = 0;
 
-            while (countCompleted < nodes.Count || countPassed < Quorum(nodes.Count))
+            while (tasks.Count > 0)
             {
-                countPassed = 0;
-                countCompleted = 0;
+                Task<bool> result = await Task.WhenAny(tasks);
 
-                for(int i = 0; i < tasks.Count; i++)
+                if (result.IsCompletedSuccessfully && result.Result)
                 {
-                    Task<bool> task = tasks[i];
+                    countPassed++;
+                }
 
-                    if (task.IsCompleted)
-                    {
-                        countCompleted++;
-
-                        if (task.Result)
-                            countPassed++;
-                    }
+                if (countPassed >= Quorum(nodes.Count))
+                {
+                    break;
                 }
             }
 
@@ -582,7 +561,7 @@ namespace SkyNet20
         }
 
         // Send Delete file packet command
-        private bool SendDeleteFilePacketToNode(byte[] message, SkyNetNodeInfo node)
+        private async Task<bool> SendDeleteFilePacketToNode(byte[] message, SkyNetNodeInfo node)
         {
             bool deleteFileSent = false;
 
@@ -599,7 +578,7 @@ namespace SkyNet20
                     stream.Write(message, 0, message.Length);
                     
                     byte[] deleteFileAck = BitConverter.GetBytes(true);
-                    stream.Read(deleteFileAck, 0, deleteFileAck.Length);
+                    await stream.ReadAsync(deleteFileAck, 0, deleteFileAck.Length);
                     deleteFileSent = true;
                 }
             }
@@ -1001,28 +980,19 @@ namespace SkyNet20
         {
             while (!this.isConnected)
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
             }
 
-            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.TimeStampPort);
-
-            // Start listening for client requests.
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.TimeStampPort);
             server.Start();
 
-            if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
-            {
-                this.LogError($"Node Recovery Server not started at {machineId}");
-            }
-            else
-                this.Log($"Node Recovery Server at {currentNode.TimeStampEndPoint}");
+            // Buffer for reading data
+            Byte[] bytes = new Byte[512];
 
-            try
+            // Enter the listening loop.
+            while (true)
             {
-                // Buffer for reading data
-                Byte[] bytes = new Byte[512];
-
-                // Enter the listening loop.
-                while (true)
+                try
                 {
                     this.Log("Time stamp server started... ");
 
@@ -1032,8 +1002,6 @@ namespace SkyNet20
 
                     // Get a stream object for reading and writing
                     NetworkStream stream = client.GetStream();
-
-                    Console.WriteLine("Time Stamp request received");
 
                     int i;
 
@@ -1061,7 +1029,6 @@ namespace SkyNet20
                         // TODO: Find the date time for the file
                         byte[] retmessage;
 
-                        Console.WriteLine("Preparing Time Stamp Response");
                         using (MemoryStream resStream = new MemoryStream())
                         {
                             SkyNetPacketHeader header = new SkyNetPacketHeader
@@ -1080,65 +1047,47 @@ namespace SkyNet20
                             Serializer.SerializeWithLengthPrefix(resStream, fileCommand, PrefixStyle.Base128);
 
                             retmessage = resStream.ToArray();
-                            Console.WriteLine("Finished Preparing Time Stamp Response");
                         }
 
                         // Send back a response.
                         stream.Write(retmessage, 0, retmessage.Length);
-                        Console.WriteLine("Sent Time Stamp Response");
                     }
 
                     // Shutdown and end connection
                     client.Close();
                 }
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("SocketException: {0}", e);
+                catch (Exception e)
+                {
+                    Console.WriteLine("Timestampserver: " + e);
+                }
             }
         }
 
         private async Task NodeRecoveryTransferRequestServer()
         {
-            // This method is responsible for calling the node to node transfer
-
             while (!this.isConnected)
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
             }
 
-            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileTransferPort);
-
-            // Start listening for client requests.
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileTransferPort);
             server.Start();
 
-            if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
-            {
-                this.LogError($"Node Recovery Server not started at {machineId}");
-            }
-            else
-                this.Log($"Node Recovery Server at {currentNode.FileTransferRequestEndPoint}");
+            // Buffer for reading data
+            Byte[] bytes = new Byte[512];
 
-            try
+            // Enter the listening loop.
+            while (true)
             {
-                // Buffer for reading data
-                Byte[] bytes = new Byte[512];
-
-                // Enter the listening loop.
-                while (true)
+                try
                 {
-                    this.Log("Transfer file server started... ");
 
-                    // Perform a blocking call to accept requests.
-                    // You could also user server.AcceptSocket() here.
+                    this.Log("Time stamp server started... ");
+
                     TcpClient client = await server.AcceptTcpClientAsync();
-
-                    // Get a stream object for reading and writing
                     NetworkStream stream = client.GetStream();
 
                     int i;
-
-                    Console.WriteLine("File Transfer Message Received");
 
                     // Loop to receive all the data sent by the client.
                     while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
@@ -1148,8 +1097,7 @@ namespace SkyNet20
 
                         using (MemoryStream retStream = new MemoryStream(bytes))
                         {
-                            SkyNetPacketHeader packetHeader = 
-                                Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
+                            SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
                             string machineId = packetHeader.MachineId;
                             this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
@@ -1191,48 +1139,34 @@ namespace SkyNet20
                     // Shutdown and end connection
                     client.Close();
                 }
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("SocketException: {0}", e);
+                catch (Exception e)
+                {
+                    Console.WriteLine("FileRecoveryTransfer: " + e);
+                }
             }
         }
 
         private async Task NodeRecoveryIndexFileTransferServer()
         {
-            while(!this.isConnected)
+            while (!this.isConnected)
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
             }
 
-            TcpListener server = server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileIndexTransferPort);
-
-            // Start listening for client requests.
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.FileIndexTransferPort);
             server.Start();
 
-            if (!this.machineList.TryGetValue(this.machineId, out SkyNetNodeInfo currentNode))
-            {
-                this.LogError($"Node Recovery Server not started at {machineId}");
-            }
-            else
-                this.Log($"Node Recovery Server at {currentNode.FileIndexTransferRequestEndPoint}");
+            // Buffer for reading data
+            Byte[] bytes = new Byte[512];
 
-            try
+            // Enter the listening loop.
+            while (true)
             {
-                // Buffer for reading data
-                Byte[] bytes = new Byte[512];
-
-                // Enter the listening loop.
-                while (true)
+                try
                 {
-                    Console.WriteLine("Index File server started... ");
                     this.Log("Index File server started... ");
 
-                    // Perform a blocking call to accept requests.
-                    // You could also user server.AcceptSocket() here.
                     TcpClient client = await server.AcceptTcpClientAsync();
-
-                    // Get a stream object for reading and writing
                     NetworkStream stream = client.GetStream();
 
                     int i;
@@ -1244,7 +1178,6 @@ namespace SkyNet20
 
                         using (MemoryStream retStream = new MemoryStream(bytes))
                         {
-                            Console.WriteLine("Index File Received... ");
                             SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
                             string machineId = packetHeader.MachineId;
                             this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
@@ -1255,7 +1188,6 @@ namespace SkyNet20
                             this.indexFile = indexFileCommand.indexFile;
                         }
 
-
                         // Send back a response.
                         byte[] retmessage = BitConverter.GetBytes(true);
                         stream.Write(retmessage, 0, retmessage.Length);
@@ -1264,10 +1196,10 @@ namespace SkyNet20
                     // Shutdown and end connection
                     client.Close();
                 }
-            }
-            catch (SocketException e)
-            {
-                Console.WriteLine("SocketException: {0}", e);
+                catch (Exception e)
+                {
+                    this.LogError("IndexFileSrever: " + e);
+                }
             }
         }
 
@@ -1275,7 +1207,7 @@ namespace SkyNet20
         {
             while (!this.isConnected)
             {
-                await Task.Delay(10);
+                await Task.Delay(100);
             }
 
             TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.StorageFileTransferPort); ;
@@ -1938,19 +1870,20 @@ namespace SkyNet20
             // Enter the listening loop.
             while (true)
             {
-                if (IsActiveMaster())
-                {
-                    TcpClient client = await server.AcceptTcpClientAsync();
 
-                    try
+                TcpClient client = await server.AcceptTcpClientAsync();
+
+                try
+                {
+                    if (IsActiveMaster())
                     {
                         NetworkStream stream = client.GetStream();
-                                
+
                         SdfsPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SdfsPacketHeader>(stream, PrefixStyle.Base128);
                         string machineId = packetHeader.MachineId;
                         this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
-                        switch (packetHeader.PayloadType)   
+                        switch (packetHeader.PayloadType)
                         {
                             case SdfsPayloadType.GetRequest:
                                 GetRequest getRequest = Serializer.DeserializeWithLengthPrefix<GetRequest>(stream, PrefixStyle.Base128);
@@ -1981,7 +1914,7 @@ namespace SkyNet20
 
                                     Serializer.SerializeWithLengthPrefix<PutResponse>(stream, confirmResponse, PrefixStyle.Base128);
 
-                                    byte [] response = BitConverter.GetBytes(true);
+                                    byte[] response = BitConverter.GetBytes(true);
                                     await stream.ReadAsync(response, 0, response.Length).WithTimeout(TimeSpan.FromSeconds(30));
                                 }
                                 else
@@ -1995,9 +1928,9 @@ namespace SkyNet20
                                     Serializer.SerializeWithLengthPrefix<PutResponse>(stream, confirmResponse, PrefixStyle.Base128);
                                 }
 
-                                PutRequestFile file = Serializer.DeserializeWithLengthPrefix<PutRequestFile>(stream, PrefixStyle.Base128);
+                                PutRequestFile file = await Task.Run(() => Serializer.DeserializeWithLengthPrefix<PutRequestFile>(stream, PrefixStyle.Base128));
 
-                                OperationResult putResult = ProcessPutFromClient(putRequest.FileName, file.payload);
+                                OperationResult putResult = await ProcessPutFromClient(putRequest.FileName, file.payload);
                                 fileLastUpdatedIndex[putRequest.FileName] = putRequestTime;
 
                                 PutResponse success = new PutResponse()
@@ -2012,7 +1945,7 @@ namespace SkyNet20
 
                             case SdfsPayloadType.DeleteRequest:
                                 DeleteRequest deleteRequest = Serializer.DeserializeWithLengthPrefix<DeleteRequest>(stream, PrefixStyle.Base128);
-                                OperationResult deleteResult = ProcessDeleteFromClient(deleteRequest.FileName);
+                                OperationResult deleteResult = await ProcessDeleteFromClient(deleteRequest.FileName);
 
                                 DeleteResponse deleteResponse = new DeleteResponse()
                                 {
@@ -2025,23 +1958,35 @@ namespace SkyNet20
 
                             case SdfsPayloadType.ListRequest:
                                 ListRequest listRequest = Serializer.DeserializeWithLengthPrefix<ListRequest>(stream, PrefixStyle.Base128);
-                                List<string> machineIds = indexFile[listRequest.FileName].Item1;
-                                ListResponse listResponse = new ListResponse()
+                                ListResponse listResponse;
+                                if (indexFile.ContainsKey(listRequest.FileName))
                                 {
-                                    machines = machineIds
-                                };
+                                    List<string> machineIds = indexFile[listRequest.FileName].Item1;
+                                    listResponse = new ListResponse()
+                                    {
+                                        machines = machineIds
+                                    };
+                                }
+                                else
+                                {
+                                    listResponse = new ListResponse()
+                                    {
+                                        machines = new List<string>(),
+                                        errorCode = ErrorCode.FileNotFound
+                                    };
+                                }
                                 Serializer.SerializeWithLengthPrefix<ListResponse>(stream, listResponse, PrefixStyle.Base128);
                                 break;
                         }
                     }
-                    catch (Exception e)
-                    {
-                        this.LogError("FileTransferError: " + e.StackTrace);
-                    }
-
-                    // Shutdown and end connection
-                    client.Close();
                 }
+                catch (Exception e)
+                {
+                    this.LogError("FileTransferError: " + e.StackTrace);
+                }
+
+                // Shutdown and end connection
+                client.Close();
             }
         }
 
@@ -2098,7 +2043,8 @@ namespace SkyNet20
         {
             if (!File.Exists(localFileName))
             {
-                Console.WriteLine($"Local file {localFileName} does not exist.");
+                Console.WriteLine($"Local file {localFileName} in directory {Directory.GetCurrentDirectory()} does not exist.");
+                return;
             }
 
 
@@ -2254,6 +2200,11 @@ namespace SkyNet20
                 stream.Write(packet, 0, packet.Length);
 
                 ListResponse response = Serializer.DeserializeWithLengthPrefix<ListResponse>(stream, PrefixStyle.Base128);
+
+                if (response.errorCode == ErrorCode.FileNotFound)
+                {
+                    LogImportant($"No file {sdfsFileName} stored.");
+                }
 
                 LogImportant($"Machines with file {sdfsFileName}");
                 foreach ( var machine in response.machines)
@@ -2449,10 +2400,10 @@ namespace SkyNet20
                 DisseminateMembershipList(),
                 PeriodicHeartBeat(),
 
-                NodeRecoveryIndexFileTransferServer(),
-                NodeRecoveryTimeStampServer(),
-                NodeRecoveryTransferRequestServer(),
-                NodeRecoveryIndexFileTransferServer(),
+                //NodeRecoveryIndexFileTransferServer(),
+                //NodeRecoveryTimeStampServer(),
+                //NodeRecoveryTransferRequestServer(),
+
                 NodeStorageFileTransferServer(),
                 StorageActiveMasterServer(),
             };
