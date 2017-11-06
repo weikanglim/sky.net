@@ -171,21 +171,6 @@ namespace SkyNet20
             return ret;
         }
 
-        private string GetMachineStringFromInteger(int machineNumber)
-        {
-            throw new NotImplementedException();
-
-            //foreach (SkyNetNodeInfo node in this.machineList.Values)
-            //{
-            //    bool parsed = Int32.TryParse(GetMachineNumber(node.HostName), out int value);
-            //    if (!parsed)
-            //        return string.Empty;
-            //    if (machineNumber == value)
-            //        return node.MachineId;
-            //}
-
-        }
-
         /// Put
         
         private bool ProcessPutFromClient(string filename, byte[] content)
@@ -502,7 +487,7 @@ namespace SkyNet20
 
             // Process Recovery
             if (!ProcessNodeFailFileRecovery(failedNode))
-                Console.WriteLine("TODO: What happens if node recovery fails"); ;
+                Console.WriteLine("TODO: What happens if node recovery fails");
 
             Console.WriteLine("Is deleted node a master?");
             // elect a new master if the failed node is a master
@@ -556,9 +541,12 @@ namespace SkyNet20
                     // update list with a new node
                     SkyNetNodeInfo recoveryFileToNode = ChooseRandomNode(kvp.Value.Item1);
 
-
                     // The latest time stamp, send a file transfer command 
-                    if (SendFileTransferMessageToNode(recoveryFileFromNode, recoveryFileToNode))
+                    if (recoveryFileFromNode.HostName == this.GetCurrentNodeInfo().HostName)
+                    {
+                        // TODO: call node to node transfer method directly
+                    }
+                    else if (SendFileTransferMessageToNode(recoveryFileFromNode, recoveryFileToNode))
                         Console.WriteLine("File sent");
                     else
                         Console.WriteLine("File not sent");
@@ -950,6 +938,8 @@ namespace SkyNet20
 
         private async Task NodeRecoveryTransferRequestServer()
         {
+            // This method is responsible for calling the node to node transfer
+
             while (!this.isConnected)
             {
                 await Task.Delay(10);
@@ -996,7 +986,8 @@ namespace SkyNet20
 
                         using (MemoryStream retStream = new MemoryStream(bytes))
                         {
-                            SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
+                            SkyNetPacketHeader packetHeader = 
+                                Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
                             string machineId = packetHeader.MachineId;
                             this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
