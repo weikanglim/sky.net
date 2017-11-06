@@ -282,6 +282,7 @@ namespace SkyNet20
             while (tasks.Count > 0)
             {
                 Task<bool> result = await Task.WhenAny(tasks);
+                tasks.Remove(result);
 
                 if (result.IsCompletedSuccessfully && result.Result)
                 {
@@ -404,6 +405,7 @@ namespace SkyNet20
             while (tasks.Count > 0)
             {
                 Task<GetFileResponseCommand> result = await Task.WhenAny(tasks);
+                tasks.Remove(result);
 
                 if (result.IsCompletedSuccessfully && result.Result.response == GetFileResponse.OK)
                 {
@@ -442,7 +444,7 @@ namespace SkyNet20
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
-                    await tcpClient.ConnectAsync(node.IPAddress, SkyNetConfiguration.FileTransferPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                    tcpClient.Connect(node.StorageFileTransferEndPoint);
 
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
@@ -536,6 +538,7 @@ namespace SkyNet20
             while (tasks.Count > 0)
             {
                 Task<bool> result = await Task.WhenAny(tasks);
+                tasks.Remove(result);
 
                 if (result.IsCompletedSuccessfully && result.Result)
                 {
@@ -1306,7 +1309,7 @@ namespace SkyNet20
         {
             string prefix = "fa17-cs425-g50-";
             string suffix = ".cs.illinois.edu";
-            string machineNumber = "0";
+            string machineNumber = "11";
 
             if (hostname.StartsWith(prefix) && hostname.EndsWith(suffix))
             {
@@ -1917,6 +1920,8 @@ namespace SkyNet20
                                         putConfirmationRequired = true,
                                     };
 
+                                    
+
                                     Serializer.SerializeWithLengthPrefix<PutResponse>(stream, confirmResponse, PrefixStyle.Base128);
 
                                     byte[] response = BitConverter.GetBytes(true);
@@ -1969,7 +1974,8 @@ namespace SkyNet20
                                     List<string> machineIds = indexFile[listRequest.FileName].Item1;
                                     listResponse = new ListResponse()
                                     {
-                                        machines = machineIds
+                                        machines = machineIds,
+                                        errorCode = ErrorCode.None
                                     };
                                 }
                                 else
@@ -1983,6 +1989,10 @@ namespace SkyNet20
                                 Serializer.SerializeWithLengthPrefix<ListResponse>(stream, listResponse, PrefixStyle.Base128);
                                 break;
                         }
+                    }
+                    else
+                    {
+                        client.Close();
                     }
                 }
                 catch (Exception e)

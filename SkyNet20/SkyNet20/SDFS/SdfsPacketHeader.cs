@@ -22,7 +22,8 @@ namespace SkyNet20.SDFS
     {
         FileNotFound,
         RequestTimedOut,
-        UnexpectedError
+        UnexpectedError,
+        None
     }
 
     [ProtoContract]
