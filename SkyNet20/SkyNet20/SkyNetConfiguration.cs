@@ -119,15 +119,13 @@ namespace SkyNet20
             {
                 if (String.IsNullOrEmpty(programPath))
                 {
+                    programPath = ConfigurationManager.AppSettings["ProgramPath"];
+
                     if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                     {
                         // Use bash to get back actual path
-                        programPath = CmdUtility.RunCmd("echo " + SkyNetConfiguration.ProgramPath).Output;
+                        programPath = CmdUtility.RunCmd("echo " + programPath).Output;
                         programPath = programPath.TrimEnd('\n');
-                    }
-                    else
-                    {
-                        programPath = ConfigurationManager.AppSettings["ProgramPath"];
                     }
                 }
 
