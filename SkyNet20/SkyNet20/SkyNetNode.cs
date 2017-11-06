@@ -78,14 +78,12 @@ namespace SkyNet20
                 + Path.DirectorySeparatorChar
                 + $"vm.{machineNumber}.log";
                 
-            if (!Directory.Exists(logPath))
+            if (Directory.Exists(logPath))
             {
-                Directory.CreateDirectory(logPath);
+                Directory.Delete(logPath, true);
             }
-            else
-            {
-                Directory.Delete(logFilePath);
-            }
+
+            Directory.CreateDirectory(logPath);
 
             Storage.Initialize();
 
