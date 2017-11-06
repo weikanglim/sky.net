@@ -5,11 +5,19 @@ using ProtoBuf;
 
 namespace SkyNet20.Network.Commands
 {
+    public enum GetFileResponse
+    {
+        OK,
+        DoesNotExist,
+        NotUpToDate,
+    }
+
     [ProtoContract]
     class GetFileResponseCommand
     {
+
         [ProtoMember(1)]
-        public bool fileExists;
+        public GetFileResponse response;
 
         [ProtoMember(2)]
         public byte [] content;

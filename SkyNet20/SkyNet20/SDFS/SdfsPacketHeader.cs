@@ -11,6 +11,18 @@ namespace SkyNet20.SDFS
         PutRequest,
         DeleteRequest,
         ListRequest,
+
+        ListResponse,
+        DeleteResponse,
+        PutResponse,
+        GetResponse
+    }
+
+    public enum ErrorCode
+    {
+        FileNotFound,
+        RequestTimedOut,
+        UnexpectedError
     }
 
     [ProtoContract]

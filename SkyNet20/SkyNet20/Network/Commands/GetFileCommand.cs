@@ -10,5 +10,7 @@ namespace SkyNet20.Network.Commands
     {
         [ProtoMember(1)]
         public string filename;
+        [ProtoMember(2)]
+        public DateTime lastModifiedDateTime;
     }
 }
