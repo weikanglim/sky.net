@@ -42,15 +42,21 @@ namespace SkyNet20.SDFS
         public static void MoveStagingToStorage(string filename)
         {
             string stagedFile = GetStagingFilePath(filename);
+            string storedFile = GetStoredFilePath(filename);
 
             if (!File.Exists(stagedFile))
             {
                 throw new FileNotFoundException($"File {filename} does not exist.");
             }
 
+            if (File.Exists(storedFile))
+            {
+                File.Delete(storedFile);
+            }
+
             Directory.Move(
                 stagedFile,
-                GetStoredFilePath(filename));
+                storedFile);
         }
 
         public static async Task WriteAsync(byte[] payload, string filename)
@@ -102,7 +108,7 @@ namespace SkyNet20.SDFS
 
         public static DateTime LastModified(string filename)
         {
-            return new FileInfo(GetStoredFilePath(filename)).LastWriteTime;
+            return new FileInfo(GetStoredFilePath(filename)).LastWriteTimeUtc;
         }
 
         private static string GetStagingFilePath(string filename)
