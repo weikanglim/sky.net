@@ -439,7 +439,7 @@ namespace SkyNet20
                     // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
-                    await tcpClient.ConnectAsync(node.IPAddress, SkyNetConfiguration.FileTransferPort).WithTimeout(TimeSpan.FromMilliseconds(500));
+                    await tcpClient.ConnectAsync(node.IPAddress, SkyNetConfiguration.FileTransferPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
 
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
@@ -1275,6 +1275,7 @@ namespace SkyNet20
                             await stream.WriteAsync(putFileAck, 0, putFileAck.Length);
                             Storage.MoveStagingToStorage(putFileCommand.filename);
 
+                            LogImportant($"Stored file {putFileCommand.filename}");
                             break;
 
                         case PayloadType.DeleteFile:
@@ -1285,6 +1286,7 @@ namespace SkyNet20
                             byte[] deleteFileAck = BitConverter.GetBytes(true);
                             stream.Write(deleteFileAck, 0, deleteFileAck.Length);
 
+                            LogImportant($"Deleted file {deleteFileCommand.filename}");
                             break;
                     }
 
@@ -1593,9 +1595,9 @@ namespace SkyNet20
                     failedTarget.Status = Status.Failed;
 
                     // ProcessNodeFailureFileRecovery
-                    Task task = new Task(() => ProcessNodeFailureFileRecovery(failedTarget));
+                    //Task task = new Task(() => ProcessNodeFailureFileRecovery(failedTarget));
 
-                    task.Start();
+                    //task.Start();
 
                     //if (!ProcessNodeFailureFileRecovery(failedTarget))
                     //{
@@ -2205,11 +2207,13 @@ namespace SkyNet20
                 {
                     LogImportant($"No file {sdfsFileName} stored.");
                 }
-
-                LogImportant($"Machines with file {sdfsFileName}");
-                foreach ( var machine in response.machines)
+                else
                 {
-                    LogImportant(machine);
+                    LogImportant($"Machines with file {sdfsFileName}");
+                    foreach (var machine in response.machines)
+                    {
+                        LogImportant(machine);
+                    }
                 }
             }
         }
@@ -2231,18 +2235,7 @@ namespace SkyNet20
                     Console.WriteLine("[7] delete <sdfsfilename>");
                     Console.WriteLine("[8] ls <sdfsfilename>");
                     Console.WriteLine("[9] store");
-
-                    // TODO: Test - Remove later
-                    Console.WriteLine();
-                    IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
-                    foreach (SkyNetNodeInfo node in masters)
-                    {
-                        Console.WriteLine("Master: " + node.HostName);
-                    }
-
-                    SkyNetNodeInfo active = this.GetActiveMaster();
-                    if (active != null)
-                     Console.WriteLine("Active: " + active.HostName);
+                    
 
                     string cmd = await ReadConsoleAsync();
 
@@ -2411,38 +2404,6 @@ namespace SkyNet20
             Task.WaitAll(serverTasks.ToArray());
         }
 
-        private bool Test = true;
-
-        public async Task TestFileIndex()
-        {
-            while (!this.isConnected)
-            {
-                await Task.Delay(10);
-            }
-
-            await Task.Delay(3000);
-
-            if (!this.Test)
-                return;
-
-
-
-            if (this.GetMasterNodes().ContainsValue(this.GetCurrentNodeInfo()))
-            {
-                List<string> testnodes = new List<string>();
-
-                foreach (SkyNetNodeInfo node in this.GetMasterNodes().Values)
-                {
-                    testnodes.Add(node.MachineId);
-                }
-
-                this.indexFile.Add("DEF", new Tuple<List<string>, DateTime?, DateTime>(
-                    testnodes,
-                    DateTime.Now,
-                    DateTime.Now));
-            }
-        }
-
         public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
             // First, detect if self has failed.
@@ -2459,7 +2420,7 @@ namespace SkyNet20
 
             var additions = listToMerge.Where(entry => !machineList.ContainsKey(entry.Key));
             var deletions = machineList.Where(entry => !listToMerge.ContainsKey(entry.Key));
-            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.TryGetValue(entry.Key, out SkyNetNodeInfo existing) && entry.Value.HeartbeatCounter > existing.HeartbeatCounter);
+            var updates = listToMerge.Where(entry => entry.Key != this.machineId && machineList.TryGetValue(entry.Key, out SkyNetNodeInfo existing));
 
             foreach (var addition in additions)
             {
@@ -2467,20 +2428,17 @@ namespace SkyNet20
                 SkyNetNodeInfo nodeToAdd = new SkyNetNodeInfo(this.GetHostName(addressToAdd), addition.Key)
                 {
                     LastHeartbeat = DateTime.UtcNow.Ticks,
-                    Status = addition.Value.Status
+                    Status = addition.Value.Status,
+                    IsMaster = addition.Value.IsMaster
                 };
 
                 machineList.AddOrUpdate(nodeToAdd.MachineId, nodeToAdd, (key, oldValue) =>
                 {
                     oldValue.LastHeartbeat = DateTime.UtcNow.Ticks;
                     oldValue.Status = addition.Value.Status;
+                    oldValue.IsMaster = addition.Value.IsMaster;
                     return oldValue;
                 });
-
-                if (nodeToAdd.Status == Status.Alive && addition.Value.IsMaster)
-                {
-                    nodeToAdd.IsMaster = addition.Value.IsMaster;
-                }
 
                 this.LogVerbose($"Added {addition.Key} ({addition.Value.HostName}) to membership list.");
             }
@@ -2519,21 +2477,10 @@ namespace SkyNet20
                         itemToUpdate.IsMaster = incomingUpdate.IsMaster;
                     }
 
-                    itemToUpdate.HeartbeatCounter = itemToUpdate.HeartbeatCounter + 1;
+                    itemToUpdate.HeartbeatCounter = incomingUpdate.HeartbeatCounter;
                     itemToUpdate.LastHeartbeat = DateTime.UtcNow.Ticks;
 
                     this.LogVerbose($"Updated {update.Key} ({update.Value.HostName}) last heartbeat to {itemToUpdate.LastHeartbeat}");
-                }
-            }
-            
-            foreach (KeyValuePair<string, SkyNetNodeInfo> kvp in listToMerge)
-            {
-                if (machineList.TryGetValue(kvp.Key, out SkyNetNodeInfo itemToUpdate))
-                {
-                    if (itemToUpdate.Status == Status.Alive && kvp.Value.IsMaster)
-                    {
-                        itemToUpdate.IsMaster = kvp.Value.IsMaster;
-                    }
                 }
             }
         }
