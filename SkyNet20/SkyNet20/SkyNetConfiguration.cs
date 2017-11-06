@@ -88,6 +88,14 @@ namespace SkyNet20
             }
         }
 
+        public static int NodeToNodePort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["NodeToNodePort"]);
+            }
+        }
+
         /// <summary>
         /// The default port used by <see cref="SkyNetNode"/> instances
         /// </summary>
