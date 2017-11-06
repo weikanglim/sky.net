@@ -2582,7 +2582,7 @@ namespace SkyNet20
 
         private void LogError(string line)
         {
-            this.Log("[Error] " + line, true);
+            this.Log("[Error] " + line, false);
         }
 
         private void LogImportant(string line)
