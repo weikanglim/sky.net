@@ -82,6 +82,11 @@ namespace SkyNet20
             {
                 Directory.CreateDirectory(logPath);
             }
+            else
+            {
+                Directory.Delete(logFilePath);
+            }
+
             Storage.Initialize();
 
             logFileWriter = File.AppendText(logFilePath);

@@ -23,15 +23,20 @@ namespace SkyNet20.SDFS
 
         public static void Initialize()
         {
-            if (!Directory.Exists(storageDirectory))
+            if (Directory.Exists(storageDirectory))
             {
-                Directory.CreateDirectory(storageDirectory);
+                Directory.Delete(storageDirectory, true);
             }
 
-            if (!Directory.Exists(stagingDirectory))
+            Directory.CreateDirectory(storageDirectory);
+
+            if (Directory.Exists(stagingDirectory))
             {
-                Directory.CreateDirectory(stagingDirectory);
+                Directory.Delete(stagingDirectory, true);
             }
+
+            Directory.CreateDirectory(stagingDirectory);
+
         }
 
         public static IEnumerable<string> ListStoredFiles()
