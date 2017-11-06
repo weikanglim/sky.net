@@ -479,7 +479,14 @@ namespace SkyNet20
         // Process Delete command from client (Might not need this method)
         private OperationResult ProcessDeleteFromClient(string filename)
         {
-            return SendDeleteFileCommandFromMasterToNodes(filename);
+            OperationResult result = SendDeleteFileCommandFromMasterToNodes(filename);
+
+            if (result.success)
+            {
+                this.indexFile.Remove(filename);
+            }
+
+            return result;
         }
 
         // Process Delete File command to nodes
@@ -1947,7 +1954,7 @@ namespace SkyNet20
                         {
                             case SdfsPayloadType.GetRequest:
                                 GetRequest getRequest = Serializer.DeserializeWithLengthPrefix<GetRequest>(stream, PrefixStyle.Base128);
-                                OperationResult result = await SendGetFileCommandFromMasterToNodes(getRequest.FileName);
+                                OperationResult result = await ProcessGetFromClient(getRequest.FileName);
 
                                 GetResponse getResponse = new GetResponse()
                                 {
@@ -2005,7 +2012,7 @@ namespace SkyNet20
 
                             case SdfsPayloadType.DeleteRequest:
                                 DeleteRequest deleteRequest = Serializer.DeserializeWithLengthPrefix<DeleteRequest>(stream, PrefixStyle.Base128);
-                                OperationResult deleteResult = SendDeleteFileCommandFromMasterToNodes(deleteRequest.FileName);
+                                OperationResult deleteResult = ProcessDeleteFromClient(deleteRequest.FileName);
 
                                 DeleteResponse deleteResponse = new DeleteResponse()
                                 {
