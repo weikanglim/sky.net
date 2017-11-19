@@ -1111,7 +1111,7 @@ namespace SkyNet20
 
         private string GetMachineNumber(string hostname)
         {
-            string prefix = "fa17-cs425-g50-";
+            string prefix = "fa17-cs425-g50-"; 
             string suffix = ".cs.illinois.edu";
             string machineNumber = "0";
 
