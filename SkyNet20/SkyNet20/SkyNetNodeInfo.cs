@@ -84,6 +84,15 @@ namespace SkyNet20
             }
         }
 
+        public IPEndPoint StorageFileTransferEndPoint
+        {
+            get
+            {
+                return new IPEndPoint(this.IPAddress, SkyNetConfiguration.StorageFileTransferPort);
+            }
+        }
+
+
         public static string GetMachineId(IPAddress address)
         {
             return $"{address.ToString()};{DateTime.UtcNow.ToString("o")}";
