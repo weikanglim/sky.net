@@ -186,7 +186,6 @@ namespace SkyNet20
             List<SkyNetNodeInfo> nodes = GetExistingOrNewNodesForFile(filename);
             OperationResult result = await SendPutCommandToNodes(filename, content, nodes, timestamp); 
 
-
             if (result.success)
             {
                 DateTime previousTimeStamp = DateTime.MinValue;
@@ -346,6 +345,7 @@ namespace SkyNet20
         {
             return await SendGetFileCommandFromMasterToNodes(filename);
         }
+
         private async Task<OperationResult> SendGetFileCommandFromMasterToNodes(string filename)
         {
             // Get the machines that hold this file
@@ -433,6 +433,7 @@ namespace SkyNet20
                 return new OperationResult { success = false, errorCode = ErrorCode.UnexpectedError };
             }
         }
+
         private async Task<GetFileResponseCommand> SendGetFilePacketToNode(byte[] message, SkyNetNodeInfo node)
         {
             GetFileResponseCommand response = null;
@@ -603,8 +604,10 @@ namespace SkyNet20
         }
 
         //// Node Failure
-        private bool ProcessNodeFailureFileRecovery(SkyNetNodeInfo failedNode)
+        private async Task<bool> ProcessNodeFailureFileRecovery(SkyNetNodeInfo failedNode)
         {
+            await Task.Delay(1);
+
             Console.WriteLine($"Node Fail: {failedNode.HostName}");
 
             if (failedNode.Status == Status.Alive)
@@ -1708,7 +1711,7 @@ namespace SkyNet20
             }
         }
 
-        private void ProcessLeaveCommand(string machineId)
+        private async void ProcessLeaveCommand(string machineId)
         {
             if (this.isIntroducer)
             {
@@ -1717,12 +1720,6 @@ namespace SkyNet20
                     leftNode.Status = Status.Failed;
 
                     this.LogImportant($"{machineId} ({leftNode.HostName}) has left.");
-
-                    // TODO: Node - Failure detection not needed here, because of update method?
-                    //if (!ProcessNodeFailureFileRecovery(leftNode))
-                    //{
-                    //    this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
-                    //}
 
                     try
                     {
@@ -1745,6 +1742,22 @@ namespace SkyNet20
                     catch (Exception)
                     {
                     }
+
+                    // TODO: Node - Failure detection not needed here, because of update method?
+                    if (this.IsActiveMaster())
+                    {
+                        Console.WriteLine("Starting node recovery process");
+
+                        bool processedSucceeded = await ProcessNodeFailureFileRecovery(leftNode);
+
+                        if (!processedSucceeded)
+                        {
+                            this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
+                        }
+
+                        Console.WriteLine("Completed node recovery process");
+                    }
+                    
                 }
             }
             else
@@ -1833,6 +1846,7 @@ namespace SkyNet20
 
                     case PayloadType.MembershipLeave:
                         this.ProcessLeaveCommand(machineId);
+                        Console.WriteLine("Leave processed!");
                         break;
 
                     case PayloadType.MembershipUpdate:
