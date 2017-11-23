@@ -1595,7 +1595,7 @@ namespace SkyNet20
             }
         }
 
-        private void DetectFailures(List<SkyNetNodeInfo> successors, List<SkyNetNodeInfo> predecessors)
+        private async void DetectFailures(List<SkyNetNodeInfo> successors, List<SkyNetNodeInfo> predecessors)
         {
             HashSet<string> failures = new HashSet<string>();
             // Update self's heartbeat
@@ -1632,16 +1632,6 @@ namespace SkyNet20
                 {
                     this.LogImportant($"{failedTarget.MachineId} ({failedTarget.HostName}) has failed.");
                     failedTarget.Status = Status.Failed;
-
-                    // ProcessNodeFailureFileRecovery
-                    //Task task = new Task(() => ProcessNodeFailureFileRecovery(failedTarget));
-
-                    //task.Start();
-
-                    //if (!ProcessNodeFailureFileRecovery(failedTarget))
-                    //{
-                    //    this.LogImportant($"{failedTarget.MachineId} files have failed to recovered.");
-                    //}
                 }
             }
 
@@ -1658,10 +1648,23 @@ namespace SkyNet20
                 }
             }
 
+            // Process Failure if it is an active master node
+            if (this.IsActiveMaster())
+            {
+                foreach (string machineId in failures)
+                {
+                    
+                    machineList.TryGetValue(machineId, out SkyNetNodeInfo failedTarget);
+
+                    Task<bool> task = this.ProcessNodeFailureFileRecovery(failedTarget);
+                }
+            }
+
             foreach (var prune in prunes)
             {
                 machineList.TryRemove(prune, out SkyNetNodeInfo value);
             }
+
         }
 
         private async Task PeriodicFileIndexTransfer()
@@ -2506,7 +2509,7 @@ namespace SkyNet20
             Task.WaitAll(serverTasks.ToArray());
         }
 
-        public void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
+        public async void MergeMembershipList(Dictionary<string, SkyNetNodeInfo> listToMerge)
         {
             // First, detect if self has failed.
             bool selfHasFailed = listToMerge.TryGetValue(this.machineId, out SkyNetNodeInfo self) && self.Status == Status.Failed;
@@ -2550,16 +2553,14 @@ namespace SkyNet20
                 this.LogVerbose($"Added {addition.Key} ({addition.Value.HostName}) to membership list.");
             }
 
+            List<SkyNetNodeInfo> deletedNodes = new List<SkyNetNodeInfo>();
+
             foreach (var deletion in deletions)
             {
                 machineList.TryRemove(deletion.Key, out SkyNetNodeInfo value);
+                deletedNodes.Add(value);
 
                 this.LogVerbose($"Removed {deletion.Key} ({deletion.Value.HostName}) from membership list.");
-
-                //if (!ProcessNodeFailureFileRecovery(value))
-                //{
-                //    this.LogImportant($"{value.MachineId} files have failed to recovered .");
-                //}
             }
 
             foreach (var update in updates)
@@ -2600,6 +2601,11 @@ namespace SkyNet20
                         itemToUpdate.IsMaster = kvp.Value.IsMaster;
                     }
                 }
+            }
+
+            foreach (SkyNetNodeInfo node in deletedNodes)
+            {
+                await ProcessNodeFailureFileRecovery(node);
             }
         }
 
