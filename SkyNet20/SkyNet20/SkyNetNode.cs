@@ -1670,6 +1670,7 @@ namespace SkyNet20
 
                     machineList.TryGetValue(machineId, out SkyNetNodeInfo failedTarget);
 
+                    Console.WriteLine("Called ProcessNodeFailureFileRecovery 1");
                     await this.ProcessNodeFailureFileRecovery(failedTarget);
                 }
             }
@@ -1812,20 +1813,21 @@ namespace SkyNet20
                     }
 
                     // TODO: Node - Failure detection not needed here, because of update method?
-                    //if (this.IsActiveMaster())
-                    //{
-                    //    Console.WriteLine("Starting node recovery process");
+                    if (this.IsActiveMaster())
+                    {
+                        Console.WriteLine("Starting node recovery process");
 
-                    //    bool processedSucceeded = await ProcessNodeFailureFileRecovery(leftNode);
+                        Console.WriteLine("Called ProcessNodeFailureFileRecovery 2");
+                        bool processedSucceeded = await ProcessNodeFailureFileRecovery(leftNode);
 
-                    //    if (!processedSucceeded)
-                    //    {
-                    //        this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
-                    //    }
+                        if (!processedSucceeded)
+                        {
+                            this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
+                        }
 
-                    //    Console.WriteLine("Completed node recovery process");
-                    //}
-                    
+                        Console.WriteLine("Completed node recovery process");
+                    }
+
                 }
             }
             else
@@ -2614,6 +2616,7 @@ namespace SkyNet20
 
             foreach (SkyNetNodeInfo node in deletedNodes)
             {
+                Console.WriteLine("Called ProcessNodeFailureFileRecovery 3");
                 await ProcessNodeFailureFileRecovery(node);
             }
         }
