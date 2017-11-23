@@ -604,11 +604,10 @@ namespace SkyNet20
         {
             await Task.Delay(1);
 
-            Console.WriteLine($"Node Fail: {failedNode.HostName}");
+            //Console.WriteLine($"Node Fail: {failedNode.HostName}");
 
             if (failedNode.Status == Status.Alive)
             {
-                Console.WriteLine("Switched node to failed");
                 failedNode.Status = Status.Failed;
             }
 
@@ -635,11 +634,12 @@ namespace SkyNet20
             if (!ProcessNodeFailFileRecovery(failedNode))
                 return false;
 
-            Console.WriteLine("Is deleted node a master?");
+            //Console.WriteLine("Is deleted node a master?");
             // elect a new master if the failed node is a master
             if (failedNode.IsMaster)
             {
-                Console.WriteLine("Yes");
+                this.LogImportant($"{failedNode.HostName} was a master node");
+
                 // elect a new master
                 List<string> masterNodes = new List<string>();
                 foreach (SkyNetNodeInfo node in GetMasterNodes().Values)
@@ -648,14 +648,14 @@ namespace SkyNet20
                 }
 
                 SkyNetNodeInfo selectedMasterNode = ChooseRandomNode(masterNodes);
-                Console.WriteLine($"New Master: {selectedMasterNode.HostName}");
+
                 if (selectedMasterNode != null)
                 {
                     selectedMasterNode.IsMaster = true;
-
-                    if (!SendFileIndexFileMessageToNode(selectedMasterNode))
-                        Console.WriteLine("Index File Message Failed");
+                    this.LogImportant($"{selectedMasterNode.HostName} is the new selected master node");
                 }
+                else
+                    this.LogError("Master node was not available");
             }
 
             return true;
@@ -663,7 +663,7 @@ namespace SkyNet20
 
         private bool ProcessNodeFailFileRecovery(SkyNetNodeInfo failedNode)
         {
-            Console.WriteLine($"index file count: {this.indexFile.Count}");
+            //Console.WriteLine($"index file count: {this.indexFile.Count}");
 
             foreach (KeyValuePair<string, Tuple<List<string>, DateTime?, DateTime>> kvp
                 in this.indexFile)
@@ -680,11 +680,11 @@ namespace SkyNet20
 
                     if (recoveryFileFromNode == null || recoveryFileFromNode.Item1 == null)
                     {
-                        Console.WriteLine("Node not available for recovery");
+                        this.LogImportant($"Node not available for recovery for file {filename}");
                         continue;
                     }
                     else
-                        Console.WriteLine($"Recovery Node: {recoveryFileFromNode.Item1.HostName}");
+                        this.LogImportant($"Recovery Node: {recoveryFileFromNode.Item1.HostName}");
                         
                     // update list with a new node
                     SkyNetNodeInfo recoveryFileToNode = ChooseRandomNode(kvp.Value.Item1);
@@ -868,8 +868,6 @@ namespace SkyNet20
                     NetworkStream stream = tcpClient.GetStream();
                     stream.Write(message, 0, message.Length);
 
-
-
                     byte[] responseMessage = new byte[256];
 
                     Int32 bytes = stream.Read(responseMessage, 0, responseMessage.Length);
@@ -936,7 +934,6 @@ namespace SkyNet20
                     stream.Write(message, 0, message.Length);
 
                     byte[] responseMessage = new byte[256];
-
 
                     Int32 bytes = stream.Read(responseMessage, 0, responseMessage.Length);
                     retValue = BitConverter.ToBoolean(responseMessage, 0);
@@ -1664,6 +1661,34 @@ namespace SkyNet20
             foreach (var prune in prunes)
             {
                 machineList.TryRemove(prune, out SkyNetNodeInfo value);
+            }
+        }
+
+        private async Task PeriodicFileIndexTransfer()
+        {
+            while(true)
+            {
+                await Task.Delay(5000);
+
+                try
+                {
+                    if (this.isConnected && this.IsActiveMaster())
+                    {
+                        if (this.GetMasterNodes() != null)
+                        {
+                            SortedList<int, SkyNetNodeInfo> masternoodes = this.GetMasterNodes();
+
+                            foreach (SkyNetNodeInfo node in masternoodes.Values.Where(item => item.HostName != this.GetCurrentNodeInfo().HostName))
+                            {
+                                this.SendFileIndexFileMessageToNode(node);
+                            }
+                        }
+                    }   
+                }
+                catch
+                {
+
+                }
             }
         }
 
@@ -2474,6 +2499,8 @@ namespace SkyNet20
 
                 NodeStorageFileTransferServer(),
                 StorageActiveMasterServer(),
+
+                PeriodicFileIndexTransfer(),
             };
 
             Task.WaitAll(serverTasks.ToArray());
