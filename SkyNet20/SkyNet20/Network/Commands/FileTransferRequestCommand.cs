@@ -14,5 +14,8 @@ namespace SkyNet20.Network.Commands
 
         [ProtoMember(2)]
         public string toMachineId;
+
+        [ProtoMember(3)]
+        public string filename;
     }
 }
