@@ -1648,21 +1648,21 @@ namespace SkyNet20
                 }
             }
 
+            foreach (var prune in prunes)
+            {
+                machineList.TryRemove(prune, out SkyNetNodeInfo value);
+            }
+
             // Process Failure if it is an active master node
             if (this.IsActiveMaster())
             {
                 foreach (string machineId in failures)
                 {
-                    
+
                     machineList.TryGetValue(machineId, out SkyNetNodeInfo failedTarget);
 
-                    Task<bool> task = this.ProcessNodeFailureFileRecovery(failedTarget);
+                    await this.ProcessNodeFailureFileRecovery(failedTarget);
                 }
-            }
-
-            foreach (var prune in prunes)
-            {
-                machineList.TryRemove(prune, out SkyNetNodeInfo value);
             }
 
         }
@@ -2175,7 +2175,7 @@ namespace SkyNet20
                         Console.WriteLine($"File {sdfsFileName} was recently updated. Do you want to continue? (Y to continue)");
                         confirm = await ReadConsoleAsync().WithTimeout(TimeSpan.FromSeconds(30));
                     }
-                    catch (TimeoutException te)
+                    catch (TimeoutException)
                     {
                         LogImportant($"Confirmation timed out. Update for file {sdfsFileName} rejected.");
                         return;
