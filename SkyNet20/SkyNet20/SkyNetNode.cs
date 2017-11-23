@@ -630,6 +630,11 @@ namespace SkyNet20
             else if (currentNode.MachineId != activeMaster.MachineId)
                 return false;
 
+            if (failedNode.LeaveFailSdfsProcessed)
+                return true;
+            else
+                failedNode.LeaveFailSdfsProcessed = true;
+
             // Process Recovery
             if (!ProcessNodeFailFileRecovery(failedNode))
                 return false;
