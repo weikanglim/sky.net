@@ -1201,8 +1201,6 @@ namespace SkyNet20
             {
                 try
                 {
-                    this.Log("Index File server started... ");
-
                     TcpClient client = await server.AcceptTcpClientAsync();
                     NetworkStream stream = client.GetStream();
 
