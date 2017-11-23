@@ -2016,8 +2016,6 @@ namespace SkyNet20
                                         putConfirmationRequired = true,
                                     };
 
-                                    
-
                                     Serializer.SerializeWithLengthPrefix<PutResponse>(stream, confirmResponse, PrefixStyle.Base128);
 
                                     byte[] response = BitConverter.GetBytes(true);
@@ -2355,7 +2353,18 @@ namespace SkyNet20
                     SkyNetNodeInfo active = this.GetActiveMaster();
                     if (active != null)
                      Console.WriteLine("Active: " + active.HostName);
-                    
+
+                    Console.WriteLine("----indexFile----");
+                    foreach (string filename in this.indexFile.Keys)
+                    {
+                        Console.WriteLine(filename);
+                    }
+
+                    Console.WriteLine("----last time stamp----");
+                    foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
+                    {
+                        Console.WriteLine(kvp.Key + " : " + kvp.Value);
+                    }
 
                     string cmd = await ReadConsoleAsync();
 
