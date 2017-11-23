@@ -1042,15 +1042,16 @@ namespace SkyNet20
                             }
                             else
                             {
-                                FileTimeStampRequestCommand fileTimeStampResponseCommand = 
+                                FileTimeStampRequestCommand fileTimeStampRequestCommand = 
                                     Serializer.DeserializeWithLengthPrefix<FileTimeStampRequestCommand>(retStream, PrefixStyle.Base128);
 
-                                filename = fileTimeStampResponseCommand.filename;
+                                filename = fileTimeStampRequestCommand.filename;
                             }
                         }
 
                         byte[] retmessage;
                         this.fileLastUpdatedIndex.TryGetValue(filename, out DateTime dt);
+                        Console.WriteLine($"{filename} was stored with timestamp of {dt.ToString()}");
 
                         using (MemoryStream resStream = new MemoryStream())
                         {
@@ -1060,14 +1061,14 @@ namespace SkyNet20
                                 PayloadType = PayloadType.FileTimeStampResponse,
                             };
 
-                            FileTimeStampResponseCommand fileCommand = new FileTimeStampResponseCommand()
+                            FileTimeStampResponseCommand fileTimeStampResponseCommand = new FileTimeStampResponseCommand()
                             {
                                 filename = filename,
                                 timeStamp = dt
                             };
 
                             Serializer.SerializeWithLengthPrefix(resStream, header, PrefixStyle.Base128);
-                            Serializer.SerializeWithLengthPrefix(resStream, fileCommand, PrefixStyle.Base128);
+                            Serializer.SerializeWithLengthPrefix(resStream, fileTimeStampResponseCommand, PrefixStyle.Base128);
 
                             retmessage = resStream.ToArray();
                         }
@@ -1811,19 +1812,19 @@ namespace SkyNet20
                     }
 
                     // TODO: Node - Failure detection not needed here, because of update method?
-                    if (this.IsActiveMaster())
-                    {
-                        Console.WriteLine("Starting node recovery process");
+                    //if (this.IsActiveMaster())
+                    //{
+                    //    Console.WriteLine("Starting node recovery process");
 
-                        bool processedSucceeded = await ProcessNodeFailureFileRecovery(leftNode);
+                    //    bool processedSucceeded = await ProcessNodeFailureFileRecovery(leftNode);
 
-                        if (!processedSucceeded)
-                        {
-                            this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
-                        }
+                    //    if (!processedSucceeded)
+                    //    {
+                    //        this.LogImportant($"{leftNode.MachineId} files have failed to recovered.");
+                    //    }
 
-                        Console.WriteLine("Completed node recovery process");
-                    }
+                    //    Console.WriteLine("Completed node recovery process");
+                    //}
                     
                 }
             }
