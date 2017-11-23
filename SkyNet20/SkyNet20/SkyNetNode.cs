@@ -2619,11 +2619,12 @@ namespace SkyNet20
                 }
             }
 
-            foreach (SkyNetNodeInfo node in deletedNodes)
-            {
-                Console.WriteLine("Called ProcessNodeFailureFileRecovery 3");
-                await ProcessNodeFailureFileRecovery(node);
-            }
+            // TODO: this is being called twice
+            //foreach (SkyNetNodeInfo node in deletedNodes)
+            //{
+            //    Console.WriteLine("Called ProcessNodeFailureFileRecovery 3");
+            //    await ProcessNodeFailureFileRecovery(node);
+            //}
         }
 
         private Task<string> ReadConsoleAsync()
