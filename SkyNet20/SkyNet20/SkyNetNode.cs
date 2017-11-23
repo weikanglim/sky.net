@@ -665,6 +665,12 @@ namespace SkyNet20
         {
             //Console.WriteLine($"index file count: {this.indexFile.Count}");
 
+            if (this.indexFile == null)
+            {
+                Console.WriteLine("Unexpected null index file");
+                return false;
+            }
+
             foreach (KeyValuePair<string, Tuple<List<string>, DateTime?, DateTime>> kvp
                 in this.indexFile)
             {
@@ -1221,8 +1227,12 @@ namespace SkyNet20
 
                             IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
                             this.indexFile = indexFileCommand.indexFile;
-                        }
 
+                            foreach (string s in this.indexFile.Keys)
+                                Console.WriteLine(s);
+
+                            Console.WriteLine($"Count of index file: {indexFile.Count}");
+                        }
 
                         // Send back a response.
                         byte[] retmessage = BitConverter.GetBytes(true);
