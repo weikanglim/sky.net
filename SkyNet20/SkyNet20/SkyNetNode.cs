@@ -792,9 +792,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.TimeStampPort))
                 {
-                    Console.WriteLine("Connected to Server");
-
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     NetworkStream stream = tcpClient.GetStream();
@@ -977,9 +974,6 @@ namespace SkyNet20
             }
 
             Console.WriteLine("Error choosing random node");
-
-            // TODO: Test
-            Console.WriteLine("Choosing Random Node");
 
             IEnumerable<KeyValuePair<string, SkyNetNodeInfo>> keyValuePairs = this.machineList.Where(x => x.Value.Status == Status.Alive);
             List<KeyValuePair<string, SkyNetNodeInfo>> machineListKeys = keyValuePairs.ToList();
@@ -1233,9 +1227,6 @@ namespace SkyNet20
 
                             IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
                             this.indexFile = indexFileCommand.indexFile;
-
-                            foreach (string s in this.indexFile.Keys)
-                                Console.WriteLine(s);
                         }
 
                         // Send back a response.
