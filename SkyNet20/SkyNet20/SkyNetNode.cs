@@ -1236,8 +1236,6 @@ namespace SkyNet20
 
                             foreach (string s in this.indexFile.Keys)
                                 Console.WriteLine(s);
-
-                            Console.WriteLine($"Count of index file: {indexFile.Count}");
                         }
 
                         // Send back a response.
@@ -1321,6 +1319,11 @@ namespace SkyNet20
 
                             //!TODO what do we do with this?
                             DateTime instructionTime = putFileCommand.instructionTime;
+
+                            if (this.fileLastUpdatedIndex.ContainsKey(putFileCommand.filename))
+                            {
+                                fileLastUpdatedIndex[putFileCommand.filename] = instructionTime;
+                            }
 
                             // Send back a response.
                             byte[] putFileAck = BitConverter.GetBytes(true);
