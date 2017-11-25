@@ -1311,6 +1311,8 @@ namespace SkyNet20
                             //!TODO what do we do with this?
                             DateTime instructionTime = putFileCommand.instructionTime;
 
+                            Console.WriteLine($"{putFileCommand.filename} at {putFileCommand.instructionTime.ToString()}");
+
                             if (this.fileLastUpdatedIndex.ContainsKey(putFileCommand.filename))
                             {
                                 fileLastUpdatedIndex[putFileCommand.filename] = instructionTime;
