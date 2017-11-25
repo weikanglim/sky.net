@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace SkyNet20.Sava
+namespace SkyNet20.Sava.UDF
 {
     public class Messaging
     {

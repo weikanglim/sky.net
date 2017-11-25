@@ -4,10 +4,10 @@ using System.Text;
 using ProtoBuf;
 using System.IO;
 
-namespace SkyNet20.Sava
+namespace SkyNet20.Sava.UDF
 {
     [ProtoContract]
-    public abstract class Vertex<TVertexValue, TEdgeValue, TMessageValue>
+    public abstract class Vertex<TVertexValue, TEdgeValue, TMessageValue> : IVertex
     {
         [ProtoMember(1)]
         public string VertexId { get; }
