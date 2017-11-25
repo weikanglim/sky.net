@@ -1317,10 +1317,6 @@ namespace SkyNet20
                             {
                                 fileLastUpdatedIndex[putFileCommand.filename] = instructionTime;
                             }
-                            else
-                            {
-                                this.fileLastUpdatedIndex.Add(putFileCommand.filename, putFileCommand.instructionTime);
-                            }
 
                             // Send back a response.
                             byte[] putFileAck = BitConverter.GetBytes(true);
