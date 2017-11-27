@@ -311,7 +311,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
@@ -439,7 +438,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
@@ -572,7 +570,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
@@ -786,8 +783,7 @@ namespace SkyNet20
         }
 
         private DateTime? SendTimeStampPacketToNode(byte[] message, SkyNetNodeInfo node)
-        {
-            // TODO: might need to have continuous while loop          
+        {     
             try
             {
                 using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.TimeStampPort))
@@ -870,7 +866,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient(nodeFrom.HostName, SkyNetConfiguration.FileTransferPort))
                 {
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     NetworkStream stream = tcpClient.GetStream();
@@ -935,7 +930,6 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.FileIndexTransferPort))
                 {
-                    // TODO: Adjust these timeouts as needed
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     NetworkStream stream = tcpClient.GetStream();
@@ -1308,7 +1302,7 @@ namespace SkyNet20
 
                             await Storage.StageAsync(putFileCommand.content, putFileCommand.filename);
 
-                            //!TODO what do we do with this?
+                            // TODO: what do we do with this?
                             DateTime instructionTime = putFileCommand.instructionTime;
 
                             Console.WriteLine($"{putFileCommand.filename} at {putFileCommand.instructionTime.ToString()}");
