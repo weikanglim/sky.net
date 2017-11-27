@@ -2339,6 +2339,7 @@ namespace SkyNet20
 					// TODO: Test - Remove later
                     Console.WriteLine();
                     IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
+                    Console.WriteLine("number of masters: " + masters.Count());
                     foreach (SkyNetNodeInfo node in masters)
                     {
                         Console.WriteLine("Master: " + node.HostName);
