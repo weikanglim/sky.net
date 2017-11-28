@@ -46,8 +46,8 @@ namespace SkyNet20
         //// Master properties:
 
         // filename | machines | timestamp | last instruction time stamp
-        private Dictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile = 
-            new Dictionary<string, Tuple<List<string>, DateTime?, DateTime>>();
+        private ConcurrentDictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile = 
+            new ConcurrentDictionary<string, Tuple<List<string>, DateTime?, DateTime>>();
 
         // filename | lastPutRequestDateTime
         private Dictionary<string, DateTime> fileLastUpdatedIndex = new Dictionary<string, DateTime>(); 
@@ -469,7 +469,7 @@ namespace SkyNet20
 
             if (result.success)
             {
-                this.indexFile.Remove(filename);
+                this.indexFile.Remove(filename, out Tuple<List<string>, DateTime?, DateTime> value);
             }
 
             return result;
@@ -2343,14 +2343,14 @@ namespace SkyNet20
                     if (active != null)
                      Console.WriteLine("Active: " + active.HostName);
 
-                    Console.WriteLine("----indexFile----");
+                    Console.WriteLine("__indexFile__");
                     Console.WriteLine("index file count" + this.indexFile.Count);
                     foreach (string filename in this.indexFile.Keys)
                     {
                         Console.WriteLine(filename);
                     }
 
-                    Console.WriteLine("----last time stamp----");
+                    Console.WriteLine("__last time stamp__");
                     foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
                     {
                         Console.WriteLine(kvp.Key + " : " + kvp.Value);
