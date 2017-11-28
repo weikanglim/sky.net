@@ -1195,7 +1195,10 @@ namespace SkyNet20
             server.Start();
 
             // Buffer for reading data
-            Byte[] bytes = new Byte[1024];
+            Byte[] bufferBytes = new Byte[1024];
+
+            // total bytes
+            List<Byte> totalBytes = new List<Byte>();
 
             // Enter the listening loop.
             while (true)
@@ -1210,26 +1213,30 @@ namespace SkyNet20
                     int i;
 
                     // Loop to receive all the data sent by the client.
-                    while ((i = stream.Read(bytes, 0, bytes.Length)) != 0)
+                    while ((i = stream.Read(bufferBytes, 0, bufferBytes.Length)) != 0)
                     {
-                        PayloadType payloadType;
-
-                        using (MemoryStream retStream = new MemoryStream(bytes))
-                        {
-                            SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
-                            string machineId = packetHeader.MachineId;
-                            this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
-                            Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
-                            payloadType = packetHeader.PayloadType;
-
-                            IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
-                            this.indexFile = indexFileCommand.indexFile;
-                        }
-
-                        // Send back a response.
-                        byte[] retmessage = BitConverter.GetBytes(true);
-                        stream.Write(retmessage, 0, retmessage.Length);
+                        totalBytes.AddRange(bufferBytes);
                     }
+
+                    PayloadType payloadType;
+
+                    Byte[] bytes = totalBytes.ToArray();
+
+                    using (MemoryStream retStream = new MemoryStream(bytes))
+                    {
+                        SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
+                        string machineId = packetHeader.MachineId;
+                        this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                        Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                        payloadType = packetHeader.PayloadType;
+
+                        IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
+                        this.indexFile = indexFileCommand.indexFile;
+                    }
+
+                    // Send back a response.
+                    byte[] retmessage = BitConverter.GetBytes(true);
+                    stream.Write(retmessage, 0, retmessage.Length);
 
                     // Shutdown and end connection
                     client.Close();
