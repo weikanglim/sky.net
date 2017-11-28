@@ -2329,32 +2329,8 @@ namespace SkyNet20
                     Console.WriteLine("[7] delete <sdfsfilename>");
                     Console.WriteLine("[8] ls <sdfsfilename>");
                     Console.WriteLine("[9] store");
-					
-					// TODO: Test - Remove later
-                    Console.WriteLine();
-                    IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
-                    Console.WriteLine("number of masters: " + masters.Count());
-                    foreach (SkyNetNodeInfo node in masters)
-                    {
-                        Console.WriteLine("Master: " + node.HostName);
-                    }
 
-                    SkyNetNodeInfo active = this.GetActiveMaster();
-                    if (active != null)
-                     Console.WriteLine("Active: " + active.HostName);
-
-                    Console.WriteLine("__indexFile__");
-                    Console.WriteLine("index file count" + this.indexFile.Count);
-                    foreach (string filename in this.indexFile.Keys)
-                    {
-                        Console.WriteLine(filename);
-                    }
-
-                    Console.WriteLine("__last time stamp__");
-                    foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
-                    {
-                        Console.WriteLine(kvp.Key + " : " + kvp.Value);
-                    }
+                    TestPrintOnConsole();
 
                     string cmd = await ReadConsoleAsync();
 
@@ -2497,6 +2473,38 @@ namespace SkyNet20
                     this.LogError(e.StackTrace);
                 }
             }
+        }
+
+        public async void TestPrintOnConsole()
+        {
+            await Task.Delay(1);
+
+            // TODO: Test - Remove later
+            Console.WriteLine();
+            IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
+            Console.WriteLine("number of masters: " + masters.Count());
+            foreach (SkyNetNodeInfo node in masters)
+            {
+                Console.WriteLine("Master: " + node.HostName);
+            }
+
+            SkyNetNodeInfo active = this.GetActiveMaster();
+            if (active != null)
+                Console.WriteLine("Active: " + active.HostName);
+
+            Console.WriteLine("--indexFile--");
+            Console.WriteLine("index file count" + this.indexFile.Count);
+            foreach (string filename in this.indexFile.Keys)
+            {
+                Console.WriteLine(filename);
+            }
+
+            Console.WriteLine("--last time stamp--");
+            foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
+            {
+                Console.WriteLine(kvp.Key + " : " + kvp.Value);
+            }
+
         }
 
         /// <summary>
