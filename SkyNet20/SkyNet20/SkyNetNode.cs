@@ -1195,7 +1195,7 @@ namespace SkyNet20
             server.Start();
 
             // Buffer for reading data
-            Byte[] bytes = new Byte[512];
+            Byte[] bytes = new Byte[1024];
 
             // Enter the listening loop.
             while (true)
@@ -1204,6 +1204,8 @@ namespace SkyNet20
                 {
                     TcpClient client = await server.AcceptTcpClientAsync();
                     NetworkStream stream = client.GetStream();
+
+                    Console.WriteLine($"Stream received from {client.Client.RemoteEndPoint}");
 
                     int i;
 
@@ -1217,7 +1219,7 @@ namespace SkyNet20
                             SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(retStream, PrefixStyle.Base128);
                             string machineId = packetHeader.MachineId;
                             this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
-
+                            Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
                             payloadType = packetHeader.PayloadType;
 
                             IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(retStream, PrefixStyle.Base128);
