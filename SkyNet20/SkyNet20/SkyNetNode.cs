@@ -311,8 +311,8 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Client.SendTimeout = 5000;
-                    tcpClient.Client.ReceiveTimeout = 5000;
+                    //tcpClient.Client.SendTimeout = 5000;
+                    //tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
                     NetworkStream stream = tcpClient.GetStream();
                     await stream.WriteAsync(message, 0, message.Length);
@@ -438,8 +438,8 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Client.SendTimeout = 5000;
-                    tcpClient.Client.ReceiveTimeout = 5000;
+                    //tcpClient.Client.SendTimeout = 5000;
+                    //tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
 
                     NetworkStream stream = tcpClient.GetStream();
@@ -570,8 +570,8 @@ namespace SkyNet20
             {
                 using (TcpClient tcpClient = new TcpClient())
                 {
-                    tcpClient.Client.SendTimeout = 5000;
-                    tcpClient.Client.ReceiveTimeout = 5000;
+                    //tcpClient.Client.SendTimeout = 5000;
+                    //tcpClient.Client.ReceiveTimeout = 5000;
                     tcpClient.Connect(node.StorageFileTransferEndPoint);
 
                     NetworkStream stream = tcpClient.GetStream();
