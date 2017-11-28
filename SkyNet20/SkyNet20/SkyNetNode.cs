@@ -956,6 +956,8 @@ namespace SkyNet20
 
         private SkyNetNodeInfo ChooseRandomNode(List<string> exclusionNodes)
         {
+            List<SkyNetNodeInfo> nodes = new List<SkyNetNodeInfo>();
+
             string machineId = string.Empty;
 
             foreach(string machine in this.machineList.Keys)
@@ -963,27 +965,25 @@ namespace SkyNet20
                 if (!exclusionNodes.Contains(machine))
                 {
                     if (this.machineList[machine].Status == Status.Alive)
-                        return this.machineList[machine];
+                        nodes.Add(this.machineList[machine]);
                 }
                 
             }
 
-            Console.WriteLine("Error choosing random node");
+            int count = nodes.Count;
 
-            IEnumerable<KeyValuePair<string, SkyNetNodeInfo>> keyValuePairs = this.machineList.Where(x => x.Value.Status == Status.Alive);
-            List<KeyValuePair<string, SkyNetNodeInfo>> machineListKeys = keyValuePairs.ToList();
-
-            do
+            if (count < 1)
             {
-                Random random = new Random();
-                int n = random.Next(machineListKeys.Count -1);
-                machineId = machineListKeys[n].Key;
+                Console.WriteLine("Random node not available!");
+                LogError("Random node not available!");
+                return null;
             }
-            while (exclusionNodes.Contains(machineId));
 
-            this.machineList.TryGetValue(machineId, out SkyNetNodeInfo ret);
+            Random r = new Random();
 
-            return ret;
+            int index = r.Next(0, count);
+
+            return nodes[index];
         }
 
         /// Node Recovery Servers
@@ -1681,7 +1681,7 @@ namespace SkyNet20
         {
             while(true)
             {
-                await Task.Delay(5000);
+                await Task.Delay(1000);
 
                 try
                 {
