@@ -2351,6 +2351,7 @@ namespace SkyNet20
                      Console.WriteLine("Active: " + active.HostName);
 
                     Console.WriteLine("----indexFile----");
+                    Console.WriteLine("index file count" + this.indexFile.Count);
                     foreach (string filename in this.indexFile.Keys)
                     {
                         Console.WriteLine(filename);
