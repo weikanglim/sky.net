@@ -653,6 +653,7 @@ namespace SkyNet20
 
                 if (selectedMasterNode != null)
                 {
+                    SendFileIndexFileMessageToNode(selectedMasterNode);
                     selectedMasterNode.IsMaster = true;
                     this.LogImportant($"{selectedMasterNode.HostName} is the new selected master node");
                 }
