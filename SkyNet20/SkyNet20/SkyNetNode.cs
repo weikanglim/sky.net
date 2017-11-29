@@ -2506,17 +2506,13 @@ namespace SkyNet20
             }
 
             Console.WriteLine("--last time stamp--");
-            if (this.fileLastUpdatedIndex == null)
-                Console.WriteLine("null");
-            else
+            if (this.fileLastUpdatedIndex != null)
             {
                 foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
                 {
                     Console.WriteLine(kvp.Key + " : " + kvp.Value);
                 }
             }
-
-
         }
 
         /// <summary>
