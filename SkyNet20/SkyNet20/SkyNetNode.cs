@@ -2491,17 +2491,28 @@ namespace SkyNet20
                 Console.WriteLine("Active: " + active.HostName);
 
             Console.WriteLine("--indexFile--");
-            Console.WriteLine("index file count" + this.indexFile.Count);
-            foreach (string filename in this.indexFile.Keys)
+            if (this.indexFile == null)
+                Console.WriteLine("null");
+            else
             {
-                Console.WriteLine(filename);
+                Console.WriteLine("index file count" + this.indexFile.Count);
+                foreach (string filename in this.indexFile.Keys)
+                {
+                    Console.WriteLine(filename);
+                }
             }
 
             Console.WriteLine("--last time stamp--");
-            foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
+            if (this.fileLastUpdatedIndex == null)
+                Console.WriteLine("null");
+            else
             {
-                Console.WriteLine(kvp.Key + " : " + kvp.Value);
+                foreach (KeyValuePair<string, DateTime> kvp in this.fileLastUpdatedIndex)
+                {
+                    Console.WriteLine(kvp.Key + " : " + kvp.Value);
+                }
             }
+
 
         }
 
