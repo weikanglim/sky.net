@@ -1208,12 +1208,12 @@ namespace SkyNet20
                     TcpClient client = await server.AcceptTcpClientAsync();
                     NetworkStream stream = client.GetStream();
 
-                    Console.WriteLine($"Stream received from {client.Client.RemoteEndPoint}");
+                    //Console.WriteLine($"Stream received from {client.Client.RemoteEndPoint}");
 
                     SkyNetPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SkyNetPacketHeader>(stream, PrefixStyle.Base128);
                     string machineId = packetHeader.MachineId;
                     this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
-                    Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                    //Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
                     IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(stream, PrefixStyle.Base128);
                     this.indexFile = indexFileCommand.indexFile;
@@ -2475,10 +2475,8 @@ namespace SkyNet20
             }
         }
 
-        public async void TestPrintOnConsole()
+        public void TestPrintOnConsole()
         {
-            await Task.Delay(1);
-
             // TODO: Test - Remove later
             Console.WriteLine();
             IEnumerable<SkyNetNodeInfo> masters = this.GetMasterNodes().Values;
