@@ -1216,7 +1216,10 @@ namespace SkyNet20
                     //Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
                     IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(stream, PrefixStyle.Base128);
-                    this.indexFile = indexFileCommand.indexFile;
+                    if (indexFileCommand.indexFile == null)
+                        Console.WriteLine("index file command has null");
+                    else
+                        this.indexFile = indexFileCommand.indexFile;
 
                     // Send back a response.
                     byte[] retmessage = BitConverter.GetBytes(true);
