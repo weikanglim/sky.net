@@ -46,8 +46,8 @@ namespace SkyNet20
         //// Master properties:
 
         // filename | machines | timestamp | last instruction time stamp
-        private ConcurrentDictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile = 
-            new ConcurrentDictionary<string, Tuple<List<string>, DateTime?, DateTime>>();
+        private Dictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile = 
+            new Dictionary<string, Tuple<List<string>, DateTime?, DateTime>>();
 
         // filename | lastPutRequestDateTime
         private Dictionary<string, DateTime> fileLastUpdatedIndex = new Dictionary<string, DateTime>(); 

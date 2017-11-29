@@ -10,6 +10,6 @@ namespace SkyNet20.Network.Commands
     public class IndexFileCommand
     {
         [ProtoMember(1)]
-        public ConcurrentDictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile;
+        public Dictionary<string, Tuple<List<string>, DateTime?, DateTime>> indexFile;
     }
 }
