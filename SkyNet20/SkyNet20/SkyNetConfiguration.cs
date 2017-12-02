@@ -107,6 +107,14 @@ namespace SkyNet20
             }
         }
 
+        public static int SavaPort
+        {
+            get
+            {
+                return Convert.ToInt32(ConfigurationManager.AppSettings["SavaPort"]);
+            }
+        }
+
 
         private static string programPath;
 

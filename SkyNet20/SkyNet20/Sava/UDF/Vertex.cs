@@ -6,6 +6,7 @@ using System.IO;
 
 namespace SkyNet20.Sava.UDF
 {
+
     [ProtoContract]
     public abstract class Vertex
     {
@@ -15,18 +16,17 @@ namespace SkyNet20.Sava.UDF
         public Primitive Value { get; set; }
         [ProtoMember(3)]
         public List<Edge> OutEdges { get; set; }
-        public long Step { get; set;  }
+        public bool IsActive { get; set; } = true;
 
         public abstract void Compute(List<Message> messages);
 
         public void SendMessageTo(string destinationVertex, Message message)
         {
         }
-
-        // !TODO: Implement
+        
         public void VoteToHalt()
         {
-            throw new NotImplementedException();
+            IsActive = false;
         }
     }
 }

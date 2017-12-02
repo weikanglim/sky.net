@@ -22,6 +22,7 @@ using SkyNet20.Sava;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using SkyNet20.Sava.UDF;
+using SkyNet20.Sava.Communication;
 
 namespace SkyNet20
 {
@@ -181,11 +182,17 @@ namespace SkyNet20
         
         private async Task<OperationResult> ProcessPutFromClient(string filename, byte[] content)
         {
+            // Send an Update message to those nodes
+            List<SkyNetNodeInfo> nodes = GetExistingOrNewNodesForFile(filename);
+            return await SendPutToNodes(filename, nodes, content);
+        }
+
+        private async Task<OperationResult> SendPutToNodes(string filename, List<SkyNetNodeInfo> nodes, byte[] content)
+        {
             DateTime timestamp = DateTime.UtcNow;
 
             // Send an Update message to those nodes
-            List<SkyNetNodeInfo> nodes = GetExistingOrNewNodesForFile(filename);
-            OperationResult result = await SendPutCommandToNodes(filename, content, nodes, timestamp); 
+            OperationResult result = await SendPutCommandToNodes(filename, content, nodes, timestamp);
 
 
             if (result.success)
@@ -2249,7 +2256,8 @@ namespace SkyNet20
                     Console.WriteLine("[7] delete <sdfsfilename>");
                     Console.WriteLine("[8] ls <sdfsfilename>");
                     Console.WriteLine("[9] store");
-                    
+                    Console.WriteLine("[10] Submit sava job");
+
 
                     string cmd = await ReadConsoleAsync();
 
@@ -2299,6 +2307,35 @@ namespace SkyNet20
                                 foreach (var file in Storage.ListStoredFiles())
                                 {
                                     Console.WriteLine(file);
+                                }
+                                break;
+                            case 10:
+                                Console.WriteLine("Jobs available, type the job name to confirm submission: ");
+                                foreach (var job in Sava.Configuration.JobConfiguration)
+                                {
+                                    
+                                    Console.WriteLine(job.JobName);
+                                }
+                                string jobName = await ReadConsoleAsync();
+
+                                Job jobToSubmit = null;
+                                foreach (var job in Sava.Configuration.JobConfiguration)
+                                {
+                                    if (jobName.Equals(job.JobName, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        jobToSubmit = job;
+                                        break;
+                                    }
+                                }
+
+                                if (jobToSubmit == null)
+                                {
+                                    Console.WriteLine("Unrecognized job.");
+                                    continue;
+                                }
+                                else
+                                {
+                                    await SavaJobCompletion(jobToSubmit);
                                 }
                                 break;
 
@@ -2496,6 +2533,59 @@ namespace SkyNet20
 
                     this.LogVerbose($"Updated {update.Key} ({update.Value.HostName}) last heartbeat to {itemToUpdate.LastHeartbeat}");
                 }
+            }
+        }
+
+        public async Task RunSavaJob(Job job)
+        {
+            FileStream fs = File.Open(job.InputFile, FileMode.Open);
+            List<Vertex> vertices = await Task.Run(() => job.GraphReader.ReadFile(fs));
+            List<List<Vertex>> partitions = await Task.Run(() => job.GraphPartitioner.Partition(vertices, machineList.Count));
+
+            Task[] tasks = new Task[partitions.Count];
+            for (int i = 0; i < partitions.Count; i++)
+            {
+                tasks[i] = SendPartitionData(partitions[i], job.JobName, i);
+            }
+
+            await Task.WhenAll(tasks);
+
+
+
+        }
+
+        public async Task SendPartitionData(List<Vertex> partition, string fileName, int i)
+        {
+            byte[] content;
+            using (MemoryStream ms = new MemoryStream())
+            {
+                Serializer.SerializeWithLengthPrefix<List<Vertex>>(ms, partition, PrefixStyle.Base128);
+                content = ms.ToArray();
+            }
+
+            List<SkyNetNodeInfo> nodes = new List<SkyNetNodeInfo>();
+            var ringList = this.GetRingList();
+
+            var primary = ringList.Where(kvp => ringList.IndexOfKey(kvp.Key) == i).First().Value;
+            nodes.Add(primary);
+            nodes.AddRange(GetSuccessors(primary, ringList));
+
+            await SendPutToNodes($"{fileName}.{i}", nodes, content);
+        }
+
+        public async Task SavaJobCompletion(Job job)
+        {
+            SkyNetNodeInfo master = GetActiveMaster();
+            using (TcpClient client = new TcpClient())
+            {
+                await client.ConnectAsync(master.IPAddress, SkyNetConfiguration.SavaPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                NetworkStream stream = client.GetStream();
+
+                JobProcessingRequest jobRequest = new JobProcessingRequest
+                {
+                    requestJob = job
+                };
+                Serializer.SerializeWithLengthPrefix<JobProcessingRequest>(stream, jobRequest, PrefixStyle.Base128);
             }
         }
 
