@@ -6,18 +6,28 @@ namespace SkyNet20.Sava
 {
     public static class Configuration
     {
-        private static Dictionary<string, JobConfiguration> jobs = new Dictionary<string, JobConfiguration>();
-
+        private static List<Job> jobConfiguration = new List<Job>();
+        private static Queue<Job> jobQueue = new Queue<Job>();
 
         /// <summary>
         /// Jobs and their associated configurations registered.
         /// </summary>
-        public static Dictionary<string, JobConfiguration> Jobs
+        public static List<Job> JobConfiguration
         {
             get
             {
-                return jobs;
+                return jobConfiguration;
             }
+        }
+
+        public static void QueueJob(Job job)
+        {
+            jobQueue.Enqueue(job);
+        }
+
+        public static Job GetNextJob()
+        {
+            return jobQueue.Dequeue();
         }
     }
 }

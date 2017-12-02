@@ -8,17 +8,17 @@ namespace SkyNet20.Sava.Defaults
 {
     class RandomGraphPartitioner : IGraphPartitioner
     {
-        public List<List<IVertex>> Partition(IEnumerable<IVertex> vertices, int workerCount)
+        public List<List<Vertex>> Partition(IEnumerable<Vertex> vertices, int workerCount)
         {
-            List<List<IVertex>> results = new List<List<IVertex>>(workerCount);
+            List<List<Vertex>> results = new List<List<Vertex>>(workerCount);
 
-            foreach (IVertex vertex in vertices)
+            foreach (Vertex vertex in vertices)
             {
-                List<IVertex> partition = results[vertex.VertexId.GetHashCode() % workerCount];
+                List<Vertex> partition = results[vertex.VertexId.GetHashCode() % workerCount];
 
                 if (partition == null)
                 {
-                    partition = new List<IVertex>();
+                    partition = new List<Vertex>();
                 }
 
                 partition.Add(vertex);

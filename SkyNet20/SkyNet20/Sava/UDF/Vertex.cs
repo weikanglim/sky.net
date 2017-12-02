@@ -7,35 +7,26 @@ using System.IO;
 namespace SkyNet20.Sava.UDF
 {
     [ProtoContract]
-    public abstract class Vertex<TVertexValue, TEdgeValue, TMessageValue> : IVertex
+    public abstract class Vertex
     {
         [ProtoMember(1)]
-        public string VertexId { get; }
+        public string VertexId { get; set;  }
         [ProtoMember(2)]
-        public TVertexValue Value { get; set; }
+        public Primitive Value { get; set; }
         [ProtoMember(3)]
-        public List<Tuple<string, TEdgeValue>> OutEdges { get; }
-        public long Step { get; }
+        public List<Edge> OutEdges { get; set; }
+        public long Step { get; set;  }
 
-        // Delegates
-        public delegate void SendMessageDelegate(string destinationVertex, TMessageValue message);
+        public abstract void Compute(List<Message> messages);
 
-        public abstract void Compute(List<TMessageValue> messages);
-
-        public void SendMessageTo(string destinationVertex, TMessageValue message)
+        public void SendMessageTo(string destinationVertex, Message message)
         {
-            byte[] serializedMessage;
-            using (MemoryStream ms = new MemoryStream())
-            {
-                Serializer.Serialize<TMessageValue>(ms, message);
-                serializedMessage = ms.GetBuffer();
-            }
-
-            Messaging.SendMessage(this.VertexId, destinationVertex, serializedMessage);
         }
 
         // !TODO: Implement
-        public abstract void VoteToHalt();
-        
+        public void VoteToHalt()
+        {
+            throw new NotImplementedException();
+        }
     }
 }

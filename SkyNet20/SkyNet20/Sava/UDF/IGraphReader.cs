@@ -5,8 +5,8 @@ using System.Text;
 
 namespace SkyNet20.Sava.UDF
 {
-    public interface IGraphReader<TVertexValue, TEdgeValue, TMessageValue>
+    public interface IGraphReader
     {
-        List<Vertex<TVertexValue, TEdgeValue, TMessageValue>> ReadFile(FileStream stream);
+        List<Vertex> ReadFile(FileStream stream);
     }
 }

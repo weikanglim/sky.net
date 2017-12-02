@@ -14,13 +14,14 @@ using System.Diagnostics;
 using ProtoBuf;
 using SkyNet20.Network;
 using SkyNet20.Network.Commands;
-using SkyNet20.Configuration;
 using SkyNet20.Extensions;
 using SkyNet20.SDFS.Responses;
 using SkyNet20.SDFS;
 using SkyNet20.SDFS.Requests;
+using SkyNet20.Sava;
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
+using SkyNet20.Sava.UDF;
 
 namespace SkyNet20
 {
@@ -2498,6 +2499,7 @@ namespace SkyNet20
             }
         }
 
+        #region Utility functions
         private Task<string> ReadConsoleAsync()
         {
             return Task.Run(() => Console.ReadLine());
@@ -2575,27 +2577,7 @@ namespace SkyNet20
             return introducers;
         }
 
-        private void LogWarning(string line)
-        {
-            this.Log("[Warning] " + line);
-        }
-
-        private void LogError(string line)
-        {
-            this.Log("[Error] " + line, false);
-        }
-
-        private void LogImportant(string line)
-        {
-            this.Log("[Important] " + line);
-        }
-
-        private void LogVerbose(string line)
-        {
-            this.Log("[Verbose]" + line, false);
-        }
-
-    private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
+        private SkyNetNodeInfo GetSuccessor(SkyNetNodeInfo node, SortedList<string, SkyNetNodeInfo> sortedList)
         {
             int nodeIndex = sortedList.IndexOfKey(node.MachineId);
             int sucessorIndex = (nodeIndex + 1) % sortedList.Count;
@@ -2687,6 +2669,28 @@ namespace SkyNet20
 
             return heartbeatPredecessors;
         }
+        #endregion
+
+        #region Log functions
+        private void LogWarning(string line)
+        {
+            this.Log("[Warning] " + line);
+        }
+
+        private void LogError(string line)
+        {
+            this.Log("[Error] " + line, false);
+        }
+
+        private void LogImportant(string line)
+        {
+            this.Log("[Important] " + line);
+        }
+
+        private void LogVerbose(string line)
+        {
+            this.Log("[Verbose]" + line, false);
+        }
 
         /// <summary>
         /// Logs the given string to file and console.
@@ -2703,5 +2707,6 @@ namespace SkyNet20
 
             logFileWriter.WriteLine(timestampedLog);
         }
+        #endregion
     }
 }
