@@ -18,7 +18,6 @@ namespace ShortestPath
             {
                 VertexId = "123",
                 Value = Primitive.Create<int>(456),
-                Step = 5,
             };
 
             byte[] result;

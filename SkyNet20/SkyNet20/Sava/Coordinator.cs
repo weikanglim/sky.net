@@ -6,6 +6,5 @@ namespace SkyNet20.Sava
 {
     public class Coordinator
     {
-        public 
     }
 }
