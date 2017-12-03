@@ -17,5 +17,8 @@ namespace SkyNet20.Sava.Communication
 
         [ProtoMember(2)]
         public int partition { get; set; }
+
+        [ProtoMember(3)]
+        public List<string> WorkerPartitions { get; set; }
     }
 }

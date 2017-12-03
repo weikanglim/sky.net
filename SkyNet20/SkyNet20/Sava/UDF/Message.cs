@@ -10,5 +10,8 @@ namespace SkyNet20.Sava.UDF
     {
         [ProtoMember(1)]
         public Primitive Value { get; set; }
+
+        [ProtoMember(2)]
+        public string VertexId{ get; set; }
     }
 }

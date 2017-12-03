@@ -2,18 +2,19 @@
 using System.Collections.Generic;
 using System.Text;
 using ProtoBuf;
+using SkyNet20.Sava.UDF;
 
 namespace SkyNet20.Sava.Communication
 {
     [ProtoContract]
-    class JobProcessingRequest : SavaPayload
+    class VertexMessagesPacket : SavaPayload
     {
-        public JobProcessingRequest()
+        public VertexMessagesPacket()
         {
-            this.PayloadType = SavaPayloadType.JobRequest;
+            PayloadType = SavaPayloadType.VertexMessage;
         }
 
         [ProtoMember(1)]
-        public Job requestJob;
+        public Message[] messages;
     }
 }

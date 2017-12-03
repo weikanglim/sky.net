@@ -7,6 +7,12 @@ using System.IO;
 namespace SkyNet20.Sava.UDF
 {
 
+    public class SendMessageArgs
+    {
+        public string destinationVertex;
+        public Message message;
+    }
+
     [ProtoContract]
     public abstract class Vertex
     {
@@ -17,12 +23,19 @@ namespace SkyNet20.Sava.UDF
         [ProtoMember(3)]
         public List<Edge> OutEdges { get; set; }
 
+        public event EventHandler OnVoteToHalt;
+        public event EventHandler<Message> OnSendMessageTo;
+
         public abstract void Compute(List<Message> messages);
 
-        public void SendMessageTo(string destinationVertex, Message message)
+        public void SendMessageTo(Message message)
         {
+            OnSendMessageTo(this, message);
         }
 
-        public delegate void VoteToHalt();
+        public void VoteToHalt()
+        {
+            OnVoteToHalt(this, EventArgs.Empty);
+        }
     }
 }

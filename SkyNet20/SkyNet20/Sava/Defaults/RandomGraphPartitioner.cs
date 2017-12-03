@@ -14,7 +14,7 @@ namespace SkyNet20.Sava.Defaults
 
             foreach (Vertex vertex in vertices)
             {
-                List<Vertex> partition = results[vertex.VertexId.GetHashCode() % workerCount];
+                List<Vertex> partition = results[PartitionNumber(vertex.VertexId, workerCount)];
 
                 if (partition == null)
                 {
@@ -25,6 +25,11 @@ namespace SkyNet20.Sava.Defaults
             }
 
             return results;
+        }
+
+        public int PartitionNumber(string vertexId, int workerCount)
+        {
+            return vertexId.GetHashCode() % workerCount;
         }
     }
 }

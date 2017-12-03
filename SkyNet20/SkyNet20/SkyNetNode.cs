@@ -37,6 +37,16 @@ namespace SkyNet20
         private String logFilePath;
         private bool isIntroducer;
         private bool isConnected = false;
+        private bool isSavaMaster;
+        private bool isSavaBackup;
+        private Dictionary<string, int> savaWorkerCompletion = new Dictionary<string, int>();
+        public List<SkyNetNodeInfo> savaMachines = new List<SkyNetNodeInfo>();
+        private int currentIteration;
+
+        private Job runningJob;
+        private bool jobHasFailed;
+
+        private Worker worker;
         private IPAddress IPAddress
         {
             get
@@ -72,6 +82,8 @@ namespace SkyNet20
             this.knownIntroducers = machines
                 .Where(kv => kv.Value.IsIntroducer == true)
                 .Select(kv => new SkyNetNodeInfo(kv.Key, SkyNetNodeInfo.GetMachineId(this.GetIpAddress(kv.Key)))).ToArray();
+            isSavaMaster = machines.ContainsKey(this.hostEntry.HostName) ? SkyNetConfiguration.Machines[this.hostEntry.HostName].IsSavaMaster : false;
+            isSavaBackup = machines.ContainsKey(this.hostEntry.HostName) ? SkyNetConfiguration.Machines[this.hostEntry.HostName].IsSavaBackupMaster : false;
 
             string machineNumber = this.GetMachineNumber(this.hostEntry.HostName);
             string logPath = SkyNetConfiguration.LogPath;
@@ -92,6 +104,7 @@ namespace SkyNet20
             logFileWriter = File.AppendText(logFilePath);
             logFileWriter.AutoFlush = true;
         }
+        
 
         //// Master Methods:
 
@@ -2419,7 +2432,7 @@ namespace SkyNet20
                                 }
                                 else
                                 {
-                                    await SavaJobCompletion(jobToSubmit);
+                                    await Task.Run(() => SubmitSavaJob(jobToSubmit));
                                 }
                                 break;
 
@@ -2572,6 +2585,8 @@ namespace SkyNet20
                 StorageActiveMasterServer(),
 
                 PeriodicFileIndexTransfer(),
+
+                SavaServer(),
             };
 
             Task.WaitAll(serverTasks.ToArray());
@@ -2672,43 +2687,196 @@ namespace SkyNet20
             }
         }
 
-        public async Task RunSavaJob(Job job)
+        public void RunSavaJob(Job job)
         {
+            runningJob = job;
+
+            InitializeSavaJob();
+            RunRounds();
+
+            if (jobHasFailed)
+            {
+                // Restart job
+            }
+        }
+
+        public void InitializeSavaJob()
+        {
+            Job job = runningJob;
             FileStream fs = File.Open(job.InputFile, FileMode.Open);
-            List<Vertex> vertices = await Task.Run(() => job.GraphReader.ReadFile(fs));
-            List<List<Vertex>> partitions = await Task.Run(() => job.GraphPartitioner.Partition(vertices, machineList.Count));
+            var savaMachinesRingList = GetSavaMachines();
+            savaMachines = savaMachinesRingList.Values.ToList<SkyNetNodeInfo>();
+            List<Vertex> vertices = job.GraphReader.ReadFile(fs);
+            List<List<Vertex>> partitions = job.GraphPartitioner.Partition(vertices, savaMachines.Count);
             List<string> partitionedFileNames = new List<string>();
+
+            this.LogDebug("Sending all partition data.");
 
             Task[] tasks = new Task[partitions.Count];
             for (int i = 0; i < partitions.Count; i++)
             {
                 string filename = $"{job.JobName}.{i}";
                 partitionedFileNames.Add(filename);
-                tasks[i] = SendPartitionData(partitions[i], filename, i);
+
+                List<SkyNetNodeInfo> nodes = new List<SkyNetNodeInfo>();
+                var primary = savaMachines[i];
+
+                nodes.Add(primary);
+                nodes.AddRange(GetSuccessors(primary, savaMachinesRingList));
+
+                tasks[i] = SendPartitionData(partitions[i], filename, i, nodes);
             }
 
-            await Task.WhenAll(tasks);
+            Task.WaitAll(tasks);
 
+            this.LogDebug("Sending job initialization requests.");
 
             tasks = new Task[partitions.Count];
             for (int i = 0; i < partitions.Count; i++)
             {
-                string machineId = indexFile[partitionedFileNames[i]].Item1.First<string>();
-                SkyNetNodeInfo node = machineList[machineId];
-                tasks[i] = InitializeJob(node, i, job);
+                tasks[i] = InitializeJob(savaMachines[i], i, job);
             }
 
-            await Task.WhenAll(tasks);
+            Task.WaitAll(tasks);
 
-            await RunRounds();
+            this.LogDebug("Job initiailization complete.");
         }
 
-        public async Task RunRounds()
+        public void RunRounds()
         {
+            do
+            {
+                this.LogImportant($"Run iteration: {currentIteration}");
 
+                savaWorkerCompletion.Clear();
+
+                Task[] tasks = new Task[savaMachines.Count];
+                for (int i = 0; i < savaMachines.Count; i++)
+                {
+                    tasks[i] = SendIterationPacket(savaMachines[i], currentIteration);
+                }
+
+                Task.WaitAll(tasks);
+
+                PollForWorkers();
+
+                currentIteration++;
+            } while (HasJobCompleted() && !jobHasFailed);
+        }
+        
+        public void PollForWorkers()
+        {
+            while (savaWorkerCompletion.Count != savaMachines.Count)
+            {
+
+                foreach (SkyNetNodeInfo savaMachine in savaMachines)
+                {
+                    if (savaMachine.Status == Status.Failed)
+                    {
+                        jobHasFailed = true;
+                        LogError($"Job ${runningJob.JobName} restarting due to failure on {savaMachine.HostName}");
+                        break;
+                    }
+                }
+
+                var waitingOn = savaMachines.Where(x => !savaWorkerCompletion.ContainsKey(x.MachineId)).Select(x => x.HostName).ToList<string>();
+                LogVerbose("Waiting on " + String.Join(',', waitingOn));
+
+                Thread.Sleep(500);
+            }
         }
 
-        public async Task SendPartitionData(List<Vertex> partition, string fileName, int partitionNumber)
+        public async Task SendIterationPacket(SkyNetNodeInfo node, int iteration)
+        {
+            using (TcpClient client = new TcpClient())
+            {
+                await client.ConnectAsync(node.IPAddress, SkyNetConfiguration.SavaPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                NetworkStream stream = client.GetStream();
+
+                SavaPacket<IterationPacket> packet = new SavaPacket<IterationPacket>
+                {
+                    Header = new SavaPacketHeader(),
+
+                    Payload = new IterationPacket
+                    {
+                        Iteration = iteration
+                    },
+                };
+
+                byte[] send = packet.ToBytes();
+                stream.Write(send, 0, send.Length);
+            }
+        }
+
+        public bool HasJobCompleted()
+        {
+            return savaWorkerCompletion.All(x => x.Value == 0);
+        }
+
+        public async Task SavaServer()
+        {
+            TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.SavaPort); ;
+            server.Start();
+            this.Log("Sava server started... ");
+
+            // Enter the listening loop.
+            while (true)
+            {
+                try
+                {
+                    TcpClient client = await server.AcceptTcpClientAsync();
+                    NetworkStream stream = client.GetStream();
+
+                    SavaPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SavaPacketHeader>(stream, PrefixStyle.Base128);
+                    this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+
+                    if (isSavaMaster)
+                    {
+                        switch (packetHeader.PayloadType)
+                        {
+                            case SavaPayloadType.JobRequest:
+                                JobProcessingRequest rq = Serializer.DeserializeWithLengthPrefix<JobProcessingRequest>(stream, PrefixStyle.Base128);
+                                Task t = Task.Run(() => RunSavaJob(rq.requestJob));
+                                break;
+
+                            case SavaPayloadType.WorkerCompletion:
+                                WorkerCompletionPacket wcp = Serializer.DeserializeWithLengthPrefix<WorkerCompletionPacket>(stream, PrefixStyle.Base128);
+                                savaWorkerCompletion.Add(wcp.MachineId, wcp.ActiveVertices);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        switch (packetHeader.PayloadType)
+                        {
+                            case SavaPayloadType.WorkerStart:
+                                WorkerStartPacket sp = Serializer.DeserializeWithLengthPrefix<WorkerStartPacket>(stream, PrefixStyle.Base128);
+                                worker = new Worker(this, sp.partition, sp.job, sp.WorkerPartitions.Count);
+                                break;
+
+                            case SavaPayloadType.Iteration:
+                                IterationPacket ip = Serializer.DeserializeWithLengthPrefix<IterationPacket>(stream, PrefixStyle.Base128);
+                                Task t = Task.Run(() => worker.ProcessNewIteration(ip.Iteration));
+                                break;
+
+                            case SavaPayloadType.VertexMessage:
+                                VertexMessagesPacket vmp = Serializer.DeserializeWithLengthPrefix<VertexMessagesPacket>(stream, PrefixStyle.Base128);
+                                worker.QueueIncomingMessages(vmp.messages);
+                                break;
+                        }
+                    }
+
+                    // Shutdown and end connection
+                    client.Close();
+                }
+                catch (Exception e)
+                {
+                    this.LogError("SavaError: " + e.StackTrace);
+                }
+            }
+        }
+
+        public async Task SendPartitionData(List<Vertex> partition, string fileName, int partitionNumber, List<SkyNetNodeInfo> nodes)
         {
             byte[] content;
             using (MemoryStream ms = new MemoryStream())
@@ -2716,13 +2884,6 @@ namespace SkyNet20
                 Serializer.SerializeWithLengthPrefix<List<Vertex>>(ms, partition, PrefixStyle.Base128);
                 content = ms.ToArray();
             }
-
-            List<SkyNetNodeInfo> nodes = new List<SkyNetNodeInfo>();
-            var ringList = this.GetRingList();
-
-            var primary = ringList.Where(kvp => ringList.IndexOfKey(kvp.Key) == partitionNumber).First().Value;
-            nodes.Add(primary);
-            nodes.AddRange(GetSuccessors(primary, ringList));
 
             await SendPutToNodes(fileName, nodes, content);
         }
@@ -2734,13 +2895,6 @@ namespace SkyNet20
                 await client.ConnectAsync(node.IPAddress, SkyNetConfiguration.SavaPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
                 NetworkStream stream = client.GetStream();
 
-                WorkerStartPacket workerStartPacket = new WorkerStartPacket
-                {
-                    job = job,
-                    partition = partition,
-                    PayloadType = SavaPayloadType.WorkerStart,
-                };
-
                 SavaPacket<WorkerStartPacket> packet = new SavaPacket<WorkerStartPacket>
                 {
                     Header = new SavaPacketHeader(),
@@ -2749,6 +2903,7 @@ namespace SkyNet20
                     {
                         job = job,
                         partition = partition,
+                        WorkerPartitions = savaMachines.Select(x => x.MachineId).ToList<string>(),
                     },
                 };
 
@@ -2757,22 +2912,96 @@ namespace SkyNet20
             }
         }
 
-        public async Task SavaJobCompletion(Job job)
+        public void SubmitSavaJob(Job job)
         {
-            SkyNetNodeInfo master = GetActiveMaster();
+            SkyNetNodeInfo master = GetSavaMaster();
             using (TcpClient client = new TcpClient())
             {
-                await client.ConnectAsync(master.IPAddress, SkyNetConfiguration.SavaPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                client.Connect(master.IPAddress, SkyNetConfiguration.SavaPort);
                 NetworkStream stream = client.GetStream();
 
-                JobProcessingRequest jobRequest = new JobProcessingRequest
+                SavaPacket<JobProcessingRequest> savaPacket = new SavaPacket<JobProcessingRequest>()
                 {
-                    requestJob = job
+                    Header = new SavaPacketHeader(),
+                    Payload = new JobProcessingRequest
+                    {
+                        requestJob = job
+                    },
                 };
-                Serializer.SerializeWithLengthPrefix<JobProcessingRequest>(stream, jobRequest, PrefixStyle.Base128);
+
+                byte[] packet = savaPacket.ToBytes();
+                stream.Write(packet, 0, packet.Length);
             }
 
             this.LogImportant($"Job {job.JobName} has been submitted.");
+        }
+
+        public void SendWorkerCompletion(int activeVertices)
+        {
+            SkyNetNodeInfo master = GetSavaMaster();
+            using (TcpClient client = new TcpClient())
+            {
+                client.Connect(master.IPAddress, SkyNetConfiguration.SavaPort);
+                NetworkStream stream = client.GetStream();
+
+                SavaPacket<WorkerCompletionPacket> savaPacket = new SavaPacket<WorkerCompletionPacket>()
+                {
+                    Header = new SavaPacketHeader(),
+                    Payload = new WorkerCompletionPacket
+                    {
+                        ActiveVertices = activeVertices,
+                        MachineId = machineId,
+                    },
+                };
+
+                byte[] packet = savaPacket.ToBytes();
+                stream.Write(packet, 0, packet.Length);
+            }
+        }
+
+        public void SendVertexMessages(Message[] sendMessages, int partitionNumber)
+        {
+            using (TcpClient client = new TcpClient())
+            {
+                client.Connect(savaMachines[partitionNumber].IPAddress, SkyNetConfiguration.SavaPort);
+                NetworkStream stream = client.GetStream();
+
+                SavaPacket<VertexMessagesPacket> savaPacket = new SavaPacket<VertexMessagesPacket>()
+                {
+                    Header = new SavaPacketHeader(),
+                    Payload = new VertexMessagesPacket
+                    {
+                        messages = sendMessages,
+                    },
+                };
+
+                byte[] packet = savaPacket.ToBytes();
+                stream.Write(packet, 0, packet.Length);
+            }
+        }
+
+        private SortedList<string, SkyNetNodeInfo> GetSavaMachines()
+        {
+            SortedList<string, SkyNetNodeInfo> ringList = new SortedList<string, SkyNetNodeInfo>();
+            foreach (var kvp in this.machineList.Where(kv => kv.Value.Status == Status.Alive && !SkyNetConfiguration.Machines[kv.Value.HostName].IsSavaMaster && !SkyNetConfiguration.Machines[kv.Value.HostName].IsSavaBackupMaster))
+            {
+                ringList.Add(kvp.Key, kvp.Value);
+            }
+
+            return ringList;
+        }
+
+        private SkyNetNodeInfo GetSavaMaster()
+        {
+            var activeMaster = machineList.Values.FirstOrDefault(x => x.Status == Status.Alive && SkyNetConfiguration.Machines[x.HostName].IsSavaMaster);
+
+            if (activeMaster ==  null)
+            {
+                var backupMaster = machineList.Values.FirstOrDefault(x => x.Status == Status.Alive && SkyNetConfiguration.Machines[x.HostName].IsSavaBackupMaster);
+                return backupMaster;
+            }
+
+            return activeMaster;
         }
 
         #region Utility functions
@@ -2948,24 +3177,29 @@ namespace SkyNet20
         #endregion
 
         #region Log functions
-        private void LogWarning(string line)
+        internal void LogWarning(string line)
         {
             this.Log("[Warning] " + line);
         }
 
-        private void LogError(string line)
+        internal void LogError(string line)
         {
             this.Log("[Error] " + line, false);
         }
 
-        private void LogImportant(string line)
+        internal void LogImportant(string line)
         {
             this.Log("[Important] " + line);
         }
 
-        private void LogVerbose(string line)
+        internal void LogVerbose(string line)
         {
             this.Log("[Verbose]" + line, false);
+        }
+
+        internal void LogDebug(string line)
+        {
+            this.Log("[Debug]" + line, true);
         }
         #endregion
 

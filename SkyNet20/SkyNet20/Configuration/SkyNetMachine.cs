@@ -25,5 +25,25 @@ namespace SkyNet20.Configuration
                 return introducer ?? false;
             }
         }
+
+        [ConfigurationProperty("IsSavaMaster", IsRequired = false, IsKey = false)]
+        public bool IsSavaMaster
+        {
+            get
+            {
+                bool? introducer = this["IsSavaMaster"] as bool?;
+                return introducer ?? false;
+            }
+        }
+
+        [ConfigurationProperty("IsSavaBackupMaster", IsRequired = false, IsKey = false)]
+        public bool IsSavaBackupMaster
+        {
+            get
+            {
+                bool? introducer = this["IsSavaBackupMaster"] as bool?;
+                return introducer ?? false;
+            }
+        }
     }
 }

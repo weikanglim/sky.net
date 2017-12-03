@@ -7,6 +7,9 @@ namespace SkyNet20.Sava.Communication
 {
     public enum SavaPayloadType
     {
+        JobRequest,
+        JobRestart,
+
         Iteration,
         WorkerStart,
         WorkerCompletion,
