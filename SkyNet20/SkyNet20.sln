@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27004.2005
+VisualStudioVersion = 15.0.27004.2006
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SkyNet20", "SkyNet20\SkyNet20.csproj", "{E3DFAB74-F836-42B3-8650-B9B8110EDD3B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShortestPath", "ShortestPath\ShortestPath.csproj", "{C6C0C6CB-28E4-4CB7-ADA0-1B4E67770B71}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ShortestPath", "ShortestPath\ShortestPath.csproj", "{C6C0C6CB-28E4-4CB7-ADA0-1B4E67770B71}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PageRank", "PageRank\PageRank.csproj", "{6693C5CB-1473-4BF8-A093-83184544A86B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{C6C0C6CB-28E4-4CB7-ADA0-1B4E67770B71}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C6C0C6CB-28E4-4CB7-ADA0-1B4E67770B71}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C6C0C6CB-28E4-4CB7-ADA0-1B4E67770B71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6693C5CB-1473-4BF8-A093-83184544A86B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6693C5CB-1473-4BF8-A093-83184544A86B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6693C5CB-1473-4BF8-A093-83184544A86B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6693C5CB-1473-4BF8-A093-83184544A86B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

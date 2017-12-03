@@ -20,6 +20,7 @@ namespace SkyNet20.Sava
         private int partitions;
         private Job job;
         private List<Vertex> vertices;
+        private GraphInfo graphInfo;
 
         private Dictionary<string, List<Message>> currentMessages = new Dictionary<string, List<Message>>();
         private Dictionary<string, List<Message>> messageQueue = new Dictionary<string, List<Message>>();
@@ -31,24 +32,25 @@ namespace SkyNet20.Sava
 
         private static readonly int MESSAGE_BUFFER = 1000;
 
-        public Worker(SkyNetNode node, int partitionNumber, Job job, int partitions)
+        public Worker(SkyNetNode node, int partitionNumber, Job job, int partitions, GraphInfo graphInfo)
         {
             this.node = node;
             this.partitionNumber = partitionNumber;
-            this.currentIteration = 0;
+            this.currentIteration = -1;
             this.job = job;
             this.partitions = partitions;
+            this.graphInfo = graphInfo;
         }
 
         public void ProcessNewIteration(int newIteration)
         {
-            if (newIteration != currentIteration)
+            if (newIteration != currentIteration + 1)
             {
                 node.LogError("Unexpected iteration");
             }
 
 
-            if (newIteration == 1)
+            if (newIteration == 0)
             {
                 Initialize();
             }
@@ -70,6 +72,7 @@ namespace SkyNet20.Sava
 
             foreach (Vertex v in vertices)
             {
+                v.CurrentIteration = newIteration;
                 v.Compute(currentMessages[v.VertexId]);
             }
 
@@ -93,7 +96,7 @@ namespace SkyNet20.Sava
             if (!messageQueue.ContainsKey(m.VertexId))
             {
                 messagesForVertex = new List<Message>();
-                messageQueue[m.VertexId] = messagesForVertex;
+                messageQueue.Add(m.VertexId, messagesForVertex);
             }
             else
             {
@@ -101,6 +104,11 @@ namespace SkyNet20.Sava
             }
 
             messagesForVertex.Add(m);
+
+            if (!queuedActiveVertices.ContainsKey(m.VertexId))
+            {
+                queuedActiveVertices.Add(m.VertexId, true);
+            }
         }
 
         public void QueueIncomingMessages(Message[] messages)
@@ -162,6 +170,8 @@ namespace SkyNet20.Sava
                 foreach (Vertex v in vertices)
                 {
                     activeVertices.Add(v.VertexId, true);
+                    v.GraphInfo = graphInfo;
+                    v.jobConfig = job.Configuration;
                     v.OnVoteToHalt += InactivateVertex;
                     v.OnSendMessageTo += SendMessageTo;
                 }   

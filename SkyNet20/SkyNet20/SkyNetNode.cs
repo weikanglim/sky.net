@@ -2731,10 +2731,13 @@ namespace SkyNet20
 
             this.LogDebug("Sending job initialization requests.");
 
+            GraphInfo graphInfo = new GraphInfo();
+            graphInfo.NumberOfVertices = vertices.Count;
+
             tasks = new Task[partitions.Count];
             for (int i = 0; i < partitions.Count; i++)
             {
-                tasks[i] = InitializeJob(savaMachines[i], i, job);
+                tasks[i] = InitializeJob(savaMachines[i], i, job, graphInfo);
             }
 
             Task.WaitAll(tasks);
@@ -2851,7 +2854,7 @@ namespace SkyNet20
                         {
                             case SavaPayloadType.WorkerStart:
                                 WorkerStartPacket sp = Serializer.DeserializeWithLengthPrefix<WorkerStartPacket>(stream, PrefixStyle.Base128);
-                                worker = new Worker(this, sp.partition, sp.job, sp.WorkerPartitions.Count);
+                                worker = new Worker(this, sp.partition, sp.job, sp.WorkerPartitions.Count, sp.GraphInfo);
                                 break;
 
                             case SavaPayloadType.Iteration:
@@ -2888,7 +2891,7 @@ namespace SkyNet20
             await SendPutToNodes(fileName, nodes, content);
         }
 
-        public async Task InitializeJob(SkyNetNodeInfo node, int partition, Job job)
+        public async Task InitializeJob(SkyNetNodeInfo node, int partition, Job job, GraphInfo graphInfo)
         {
             using (TcpClient client = new TcpClient())
             {
@@ -2904,6 +2907,7 @@ namespace SkyNet20
                         job = job,
                         partition = partition,
                         WorkerPartitions = savaMachines.Select(x => x.MachineId).ToList<string>(),
+                        GraphInfo = graphInfo
                     },
                 };
 

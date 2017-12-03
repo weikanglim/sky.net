@@ -1,17 +1,21 @@
 ﻿using SkyNet20.Sava.UDF;
 using SkyNet20.Sava.Defaults;
-
+using ProtoBuf;
 using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace SkyNet20.Sava
 {
+    [ProtoContract]
     public class Job
     {
 
+        [ProtoMember(1)]
         public string JobName { get; set; }
+        [ProtoMember(2)]
         public string InputFile { get; set; }
+        [ProtoMember(3)]
         public JobConfiguration Configuration { get; set; }
 
         public Vertex Vertex

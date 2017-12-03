@@ -20,5 +20,8 @@ namespace SkyNet20.Sava.Communication
 
         [ProtoMember(3)]
         public List<string> WorkerPartitions { get; set; }
+
+        [ProtoMember(4)]
+        public GraphInfo GraphInfo{ get; set; }
     }
 }

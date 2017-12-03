@@ -22,9 +22,12 @@ namespace SkyNet20.Sava.UDF
         public Primitive Value { get; set; }
         [ProtoMember(3)]
         public List<Edge> OutEdges { get; set; }
+        public GraphInfo GraphInfo { get; set; }
+        public JobConfiguration jobConfig { get; set; }
 
         public event EventHandler OnVoteToHalt;
         public event EventHandler<Message> OnSendMessageTo;
+        public int CurrentIteration { get; set; }
 
         public abstract void Compute(List<Message> messages);
 
