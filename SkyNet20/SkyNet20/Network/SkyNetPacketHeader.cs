@@ -23,6 +23,8 @@ namespace SkyNet20.Network
         FileTransferRequest,
         FileTransferResponse,
         FileIndexTransferRequest,
+
+        IndexFileHeartbeat,
     }
 
     [ProtoContract]

@@ -24,6 +24,7 @@ namespace SkyNet20
             this.MachineId = machineId;
             this.IPAddress = SkyNetNodeInfo.ParseMachineId(this.MachineId).Item1;
             this.Status = Status.Alive;
+            this.LeaveFailSdfsProcessed = false;
         }
 
         public SkyNetNodeInfo()
@@ -41,6 +42,8 @@ namespace SkyNet20
         public long HeartbeatCounter { get; set; }
         [ProtoMember(5)]
         public bool IsMaster { get; set; }
+        [ProtoMember(6)]
+        public bool LeaveFailSdfsProcessed { get; set; }
 
         public IPAddress IPAddress { get; set; }
 
