@@ -6,7 +6,7 @@ using System.Text;
 
 namespace SkyNet20.Sava.Communication
 {
-    class SavaPacket<T> where T : SdfsPayload
+    class SavaPacket<T> where T : SavaPayload
     {
         public SavaPacketHeader Header { get; set; }
         public T Payload { get; set; }

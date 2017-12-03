@@ -8,6 +8,7 @@ namespace SkyNet20.Sava.Communication
     public enum SavaPayloadType
     {
         Iteration,
+        WorkerStart,
         WorkerCompletion,
         VertexMessage
     }

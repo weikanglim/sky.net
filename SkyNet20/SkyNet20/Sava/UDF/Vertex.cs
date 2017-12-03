@@ -16,17 +16,13 @@ namespace SkyNet20.Sava.UDF
         public Primitive Value { get; set; }
         [ProtoMember(3)]
         public List<Edge> OutEdges { get; set; }
-        public bool IsActive { get; set; } = true;
 
         public abstract void Compute(List<Message> messages);
 
         public void SendMessageTo(string destinationVertex, Message message)
         {
         }
-        
-        public void VoteToHalt()
-        {
-            IsActive = false;
-        }
+
+        public delegate void VoteToHalt();
     }
 }

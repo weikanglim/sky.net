@@ -2541,20 +2541,38 @@ namespace SkyNet20
             FileStream fs = File.Open(job.InputFile, FileMode.Open);
             List<Vertex> vertices = await Task.Run(() => job.GraphReader.ReadFile(fs));
             List<List<Vertex>> partitions = await Task.Run(() => job.GraphPartitioner.Partition(vertices, machineList.Count));
+            List<string> partitionedFileNames = new List<string>();
 
             Task[] tasks = new Task[partitions.Count];
             for (int i = 0; i < partitions.Count; i++)
             {
-                tasks[i] = SendPartitionData(partitions[i], job.JobName, i);
+                string filename = $"{job.JobName}.{i}";
+                partitionedFileNames.Add(filename);
+                tasks[i] = SendPartitionData(partitions[i], filename);
             }
 
             await Task.WhenAll(tasks);
 
 
+            tasks = new Task[partitions.Count];
+            for (int i = 0; i < partitions.Count; i++)
+            {
+                string machineId = indexFile[partitionedFileNames[i]].Item1.First<string>();
+                SkyNetNodeInfo node = machineList[machineId];
+                tasks[i] = InitializeJob(node, i, job);
+            }
+
+            await Task.WhenAll(tasks);
+
+            await RunRounds();
+        }
+
+        public async Task RunRounds()
+        {
 
         }
 
-        public async Task SendPartitionData(List<Vertex> partition, string fileName, int i)
+        public async Task SendPartitionData(List<Vertex> partition, string fileName)
         {
             byte[] content;
             using (MemoryStream ms = new MemoryStream())
@@ -2570,7 +2588,37 @@ namespace SkyNet20
             nodes.Add(primary);
             nodes.AddRange(GetSuccessors(primary, ringList));
 
-            await SendPutToNodes($"{fileName}.{i}", nodes, content);
+            await SendPutToNodes(fileName, nodes, content);
+        }
+
+        public async Task InitializeJob(SkyNetNodeInfo node, int partition, Job job)
+        {
+            using (TcpClient client = new TcpClient())
+            {
+                await client.ConnectAsync(node.IPAddress, SkyNetConfiguration.SavaPort).WithTimeout(TimeSpan.FromMilliseconds(1000));
+                NetworkStream stream = client.GetStream();
+
+                WorkerStartPacket workerStartPacket = new WorkerStartPacket
+                {
+                    job = job,
+                    partition = partition,
+                    PayloadType = SavaPayloadType.WorkerStart,
+                };
+
+                SavaPacket<WorkerStartPacket> packet = new SavaPacket<WorkerStartPacket>
+                {
+                    Header = new SavaPacketHeader(),
+
+                    Payload = new WorkerStartPacket
+                    {
+                        job = job,
+                        partition = partition,
+                    },
+                };
+
+                byte[] send = packet.ToBytes();
+                stream.Write(send, 0, send.Length);
+            }
         }
 
         public async Task SavaJobCompletion(Job job)
@@ -2587,6 +2635,8 @@ namespace SkyNet20
                 };
                 Serializer.SerializeWithLengthPrefix<JobProcessingRequest>(stream, jobRequest, PrefixStyle.Base128);
             }
+
+            this.LogImportant($"Job {job.JobName} has been submitted.");
         }
 
         #region Utility functions
