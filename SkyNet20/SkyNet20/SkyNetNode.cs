@@ -2753,6 +2753,7 @@ namespace SkyNet20
             //var thisNode = new SkyNetNodeInfo("vpnpool-130-126-147-202.near.illinois.edu", this.machineId);
             //savaMachines.Add(thisNode);
             //machineList.GetOrAdd(thisNode.MachineId, thisNode);
+            //this.isConnected = true;
             //this.isSavaMaster = true;
             ////END
             this.LogDebug("Reading graph file");
@@ -2813,8 +2814,13 @@ namespace SkyNet20
 
                 PollForWorkers();
 
+                if (jobHasFailed)
+                {
+                    break;
+                }
+
                 currentIteration++;
-            } while (!HasJobCompleted() || !jobHasFailed);
+            } while (!HasJobCompleted());
 
             LogDebug("RunRounds finish");
         }
