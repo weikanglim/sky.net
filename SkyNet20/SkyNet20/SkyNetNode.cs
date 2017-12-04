@@ -1237,10 +1237,7 @@ namespace SkyNet20
                     //Console.WriteLine($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
                     IndexFileCommand indexFileCommand = Serializer.DeserializeWithLengthPrefix<IndexFileCommand>(stream, PrefixStyle.Base128);
-                    if (indexFileCommand.indexFile == null)
-                        Console.WriteLine("index file command has null");
-                    else
-                        this.indexFile = indexFileCommand.indexFile;
+                    this.indexFile = indexFileCommand.indexFile;
 
                     // Send back a response.
                     byte[] retmessage = BitConverter.GetBytes(true);
@@ -2689,24 +2686,42 @@ namespace SkyNet20
 
         public void RunSavaJob(Job job)
         {
-            runningJob = job;
-
-            InitializeSavaJob();
-            RunRounds();
-
-            if (jobHasFailed)
+            try
             {
-                // Restart job
+                this.LogDebug($"Running job {job.JobName}");
+                runningJob = job;
+
+                InitializeSavaJob();
+                RunRounds();
+
+                if (jobHasFailed)
+                {
+                    // Restart job
+                }
+            }
+            catch (Exception e)
+            {
+                if (e.InnerException != null)
+                {
+                    this.LogError("Error encounted, inner error: " + e.InnerException.StackTrace);
+                }
+                else
+                {
+                    this.LogError("Error encounted, error: " + e.StackTrace);
+                }
             }
         }
 
         public void InitializeSavaJob()
         {
             Job job = runningJob;
-            FileStream fs = File.Open(job.InputFile, FileMode.Open);
+            FileStream fs = File.Open(SkyNetConfiguration.ProgramPath + Path.DirectorySeparatorChar + job.InputFile, FileMode.Open);
             var savaMachinesRingList = GetSavaMachines();
             savaMachines = savaMachinesRingList.Values.ToList<SkyNetNodeInfo>();
+
+            this.LogDebug("Reading graph file");
             List<Vertex> vertices = job.GraphReader.ReadFile(fs);
+            this.LogDebug("Partitioning graph file");
             List<List<Vertex>> partitions = job.GraphPartitioner.Partition(vertices, savaMachines.Count);
             List<string> partitionedFileNames = new List<string>();
 
@@ -2831,7 +2846,7 @@ namespace SkyNet20
                     NetworkStream stream = client.GetStream();
 
                     SavaPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SavaPacketHeader>(stream, PrefixStyle.Base128);
-                    this.LogVerbose($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                    this.LogImportant($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
 
                     if (isSavaMaster)
                     {
@@ -3188,7 +3203,7 @@ namespace SkyNet20
 
         internal void LogError(string line)
         {
-            this.Log("[Error] " + line, false);
+            this.Log("[Error] " + line, true);
         }
 
         internal void LogImportant(string line)
