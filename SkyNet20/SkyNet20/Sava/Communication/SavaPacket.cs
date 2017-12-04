@@ -20,7 +20,7 @@ namespace SkyNet20.Sava.Communication
                 Header.PayloadType = Payload.PayloadType;
 
                 Serializer.SerializeWithLengthPrefix(stream, Header, PrefixStyle.Base128);
-                Serializer.SerializeWithLengthPrefix(stream, Payload, PrefixStyle.Base128);
+                Serializer.SerializeWithLengthPrefix<T>(stream, Payload, PrefixStyle.Base128);
 
                 packet = stream.ToArray();
             }

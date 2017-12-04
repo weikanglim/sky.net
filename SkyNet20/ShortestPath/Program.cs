@@ -32,18 +32,7 @@ namespace ShortestPath
                 Vertex vOut = Serializer.DeserializeWithLengthPrefix<ShortestPathVertex>(ms, PrefixStyle.Base128);
             }
 
-            //JobConfiguration jobConfiguration = new JobConfiguration();
-            //jobConfiguration.VertexType = typeof(ShortestPathVertex);
-            //Job job = new Job
-            //{
-            //    JobName = "ShortestPath",
-            //    JobConfiguration = jobConfiguration,
-            //};
-            //Configuration.JobConfiguration.Add(job);
-            //Configuration.QueueJob(job);
 
-            //SkyNetNode node = new SkyNetNode();
-            //node.Run();
         }
     }
 }

@@ -12,14 +12,16 @@ namespace SkyNet20.Sava.Defaults
         {
             List<List<Vertex>> results = new List<List<Vertex>>(workerCount);
 
+            for (int i = 0; i < workerCount; i++)
+            {
+                results.Add(new List<Vertex>());
+            }
+
+
             foreach (Vertex vertex in vertices)
             {
-                List<Vertex> partition = results[PartitionNumber(vertex.VertexId, workerCount)];
-
-                if (partition == null)
-                {
-                    partition = new List<Vertex>();
-                }
+                int index = PartitionNumber(vertex.VertexId, workerCount);
+                List<Vertex> partition = results[index];
 
                 partition.Add(vertex);
             }

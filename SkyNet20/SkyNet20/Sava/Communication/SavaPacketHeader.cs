@@ -13,7 +13,10 @@ namespace SkyNet20.Sava.Communication
         Iteration,
         WorkerStart,
         WorkerCompletion,
-        VertexMessage
+        VertexMessage,
+
+        ResultsRequest,
+        ResultsResponse,
     }
 
     [ProtoContract]

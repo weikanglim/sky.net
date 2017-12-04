@@ -25,7 +25,7 @@ namespace PageRank
                 }
             }
 
-            if (this.CurrentIteration < 30)
+            if (this.CurrentIteration < 20)
             {
                 int edgeCount = this.OutEdges.Count;
 

@@ -73,13 +73,27 @@ namespace SkyNet20.Sava
             foreach (Vertex v in vertices)
             {
                 v.CurrentIteration = newIteration;
-                v.Compute(currentMessages[v.VertexId]);
+                if (currentMessages.ContainsKey(v.VertexId))
+                {
+                    v.Compute(currentMessages[v.VertexId]);
+                }
+                else
+                {
+                    v.Compute(new List<Message>());
+                }
             }
 
-            currentIteration++;
+            currentIteration = newIteration;
             node.SendWorkerCompletion(activeVertices.Values.Where(x => x == true).Count<bool>());
         }
 
+        public List<Vertex> Vertices
+        {
+            get
+            {
+                return vertices;
+            }
+        }
 
         private string PartitionFile
         {

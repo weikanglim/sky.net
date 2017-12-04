@@ -5,6 +5,7 @@ using ProtoBuf;
 
 namespace SkyNet20.Sava.Communication
 {
+    [ProtoContract]
     class WorkerStartPacket : SavaPayload
     {
         public WorkerStartPacket()
