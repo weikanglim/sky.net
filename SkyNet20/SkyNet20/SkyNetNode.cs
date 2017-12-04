@@ -122,7 +122,7 @@ namespace SkyNet20
                 if (!bParse)
                     this.LogVerbose($"Parsing machine number failed for {node.HostName}");
 
-                if (kvp.Value.IsMaster)
+                if (kvp.Value.IsMaster && !ret.ContainsKey(iMachineNumber))
                     ret.Add(iMachineNumber, kvp.Value);
             }
 
@@ -350,7 +350,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("Send file failure due to exception: " + e.StackTrace);
+                this.LogError("Send file failure due to exception: " + e.ToString());
                 sendFileSent = false;
             }
 
@@ -476,7 +476,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("Get file failure due to exception: " + e.StackTrace);
+                this.LogError("Get file failure due to exception: " + e.ToString());
             }
 
             return response;
@@ -610,7 +610,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("Delete file failure due to exception: " + e.StackTrace);
+                this.LogError("Delete file failure due to exception: " + e.ToString());
                 deleteFileSent = false;
             }
 
@@ -730,8 +730,8 @@ namespace SkyNet20
                                 new List<SkyNetNodeInfo>() { recoveryFileToNode },
                                 recoveryFileFromNode.Item2 == null ? DateTime.UtcNow : (DateTime)recoveryFileFromNode.Item2).Result;
                     }
-                    else if (SendFileTransferMessageToNode(recoveryFileFromNode.Item1, recoveryFileToNode, kvp.Key))
-                        Console.WriteLine("File sent to node to transfer");
+                    //else if (SendFileTransferMessageToNode(recoveryFileFromNode.Item1, recoveryFileToNode, kvp.Key))
+                    //    Console.WriteLine("File sent to node to transfer");
                     else
                         Console.WriteLine("File not sent");
 
@@ -846,7 +846,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("File time stamp request failed due to exception: " + e.StackTrace);
+                this.LogError("File time stamp request failed due to exception: " + e.ToString());
             }
 
             this.LogError("File time stamp request did not complete");
@@ -886,8 +886,9 @@ namespace SkyNet20
 
             try
             {
-                using (TcpClient tcpClient = new TcpClient(nodeFrom.HostName, SkyNetConfiguration.FileTransferPort))
+                using (TcpClient tcpClient = new TcpClient())
                 {
+                    tcpClient.Connect(nodeFrom.IPAddress, SkyNetConfiguration.FileTransferPort);
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     NetworkStream stream = tcpClient.GetStream();
@@ -909,7 +910,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("File transfer request failed due to exception: " + e.StackTrace);
+                this.LogError("File transfer request failed due to exception: " + e.ToString());
             }
 
             if (!retValue)
@@ -950,8 +951,9 @@ namespace SkyNet20
 
             try
             {
-                using (TcpClient tcpClient = new TcpClient(node.HostName, SkyNetConfiguration.FileIndexTransferPort))
+                using (TcpClient tcpClient = new TcpClient())
                 {
+                    tcpClient.Connect(node.IPAddress, SkyNetConfiguration.FileIndexTransferPort);
                     tcpClient.Client.SendTimeout = 5000;
                     tcpClient.Client.ReceiveTimeout = 5000;
                     NetworkStream stream = tcpClient.GetStream();
@@ -969,7 +971,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("File transfer request failed due to exception: " + e.StackTrace);
+                this.LogError("File transfer request failed due to exception: " + e.ToString());
             }
 
             return retValue;
@@ -1356,7 +1358,7 @@ namespace SkyNet20
                 }
                 catch (Exception e)
                 {
-                    this.LogError("FileTransferError: " + e.StackTrace);
+                    this.LogError("FileTransferError: " + e.ToString());
                 }
             }
         }
@@ -1416,7 +1418,7 @@ namespace SkyNet20
                         // Wait for membership list to be received
                         for (int waitCount = 0; waitCount < 2 && machineList.Count < 1; waitCount++)
                         {
-                            Thread.Sleep(200);
+                            Thread.Sleep(350);
                         }
 
                         if (machineList.Count > 1 || (this.isIntroducer && this.machineList.ContainsKey(this.machineId)))
@@ -1433,7 +1435,7 @@ namespace SkyNet20
                     catch (Exception e)
                     {
                         this.isConnected = false;
-                        this.LogError($"Unable to send command to {introducer.HostName}, error : " + e.StackTrace);
+                        this.LogError($"Unable to send command to {introducer.HostName}, error : " + e.ToString());
                     }
                 }
             }
@@ -1490,7 +1492,7 @@ namespace SkyNet20
                     }
                     catch (Exception e)
                     {
-                        this.LogError($"Unable to send command to {introducer.HostName}, error : " + e.StackTrace);
+                        this.LogError($"Unable to send command to {introducer.HostName}, error : " + e.ToString());
                     }
                 }
             }
@@ -1547,7 +1549,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("Send membership failure due to exception: " + e.StackTrace);
+                this.LogError("Send membership failure due to exception: " + e.ToString());
                 membershipSent = false;
             }
 
@@ -1598,7 +1600,7 @@ namespace SkyNet20
             }
             catch (Exception e)
             {
-                this.LogError("Heartbeat failure due to exception: " + e.StackTrace);
+                this.LogError("Heartbeat failure due to exception: " + e.ToString());
                 heartbeatSent = false;
             }
 
@@ -1677,17 +1679,17 @@ namespace SkyNet20
             }
 
             // Process Failure if it is an active master node
-            if (this.IsActiveMaster())
-            {
-                foreach (string machineId in failures)
-                {
+            //if (this.IsActiveMaster())
+            //{
+            //    foreach (string machineId in failures)
+            //    {
 
-                    machineList.TryGetValue(machineId, out SkyNetNodeInfo failedTarget);
+            //        machineList.TryGetValue(machineId, out SkyNetNodeInfo failedTarget);
 
-                    Console.WriteLine("Called ProcessNodeFailureFileRecovery 1");
-                    await this.ProcessNodeFailureFileRecovery(failedTarget);
-                }
-            }
+            //        Console.WriteLine("Called ProcessNodeFailureFileRecovery 1");
+            //        await this.ProcessNodeFailureFileRecovery(failedTarget);
+            //    }
+            //}
 
         }
 
@@ -1719,7 +1721,7 @@ namespace SkyNet20
             }
         }
 
-        private async Task PeriodicHeartBeat()
+        private async void PeriodicHeartBeat()
         {
             while (true)
             {
@@ -1755,7 +1757,7 @@ namespace SkyNet20
                 }
                 catch (Exception ex)
                 {
-                    this.LogError("Unexpected error: " + ex.StackTrace);
+                    this.LogError("Unexpected error: " + ex.ToString());
                 }
 
                 await Task.Delay(SkyNetConfiguration.HeartbeatInterval);
@@ -1787,7 +1789,7 @@ namespace SkyNet20
                 }
                 catch (Exception ex)
                 {
-                    this.LogError("Unexpected error: " + ex.StackTrace);
+                    this.LogError("Unexpected error: " + ex.ToString());
                 }
 
                 await Task.Delay(SkyNetConfiguration.GossipRoundInterval);
@@ -1946,7 +1948,7 @@ namespace SkyNet20
             }
         }
 
-        public async Task ReceiveCommand()
+        public async void ReceiveCommand()
         {
             UdpClient server = new UdpClient(SkyNetConfiguration.DefaultPort);
 
@@ -2100,7 +2102,7 @@ namespace SkyNet20
                 }
                 catch (Exception e)
                 {
-                    this.LogError("FileTransferError: " + e.StackTrace);
+                    this.LogError("FileTransferError: " + e.ToString());
                 }
 
                 // Shutdown and end connection
@@ -2520,7 +2522,7 @@ namespace SkyNet20
                 }
                 catch (Exception e)
                 {
-                    this.LogError(e.StackTrace);
+                    this.LogError(e.ToString());
                 }
             }
         }
@@ -2567,21 +2569,25 @@ namespace SkyNet20
         /// </summary>
         public void Run()
         {
+            Thread ph = new Thread(new ThreadStart(PeriodicHeartBeat));
+            ph.Start();
+
             Task[] serverTasks = {
-                ReceiveCommand(),
+                Task.Factory.StartNew(() => ReceiveCommand()),
+                //Task.Factory.StartNew(() => PeriodicHeartBeat(), TaskCreationOptions.LongRunning),
+
                 PromptUser(),
 
                 DisseminateMembershipList(),
-                PeriodicHeartBeat(),
 
-                NodeRecoveryIndexFileTransferServer(),
-                NodeRecoveryTimeStampServer(),
-                NodeRecoveryTransferRequestServer(),
+                //NodeRecoveryIndexFileTransferServer(),
+                //NodeRecoveryTimeStampServer(),
+                //NodeRecoveryTransferRequestServer(),
 
                 NodeStorageFileTransferServer(),
                 StorageActiveMasterServer(),
 
-                PeriodicFileIndexTransfer(),
+                //PeriodicFileIndexTransfer(),
 
                 SavaServer(),
             };
@@ -2686,12 +2692,26 @@ namespace SkyNet20
 
         public async Task<List<Vertex>> RunSavaJob(Job job)
         {
+            List<Vertex> results;
+            runningJob = job;
+
+            do
+            {
+                currentIteration = 0;
+                jobHasFailed = false;
+
+                results = await InitializeAndRunSavaJob(job);
+            } while (jobHasFailed);
+
+            return results;
+        }
+
+        public async Task<List<Vertex>> InitializeAndRunSavaJob(Job job)
+        {
             try
             {
                 Stopwatch sw = new Stopwatch();
-                this.isConnected = true;
                 this.LogDebug($"Running job {job.JobName}");
-                runningJob = job;
 
                 sw.Start();
                 InitializeSavaJob();
@@ -2700,8 +2720,7 @@ namespace SkyNet20
 
                 if (jobHasFailed)
                 {
-                    // Restart job
-                    this.LogError("Job failed");
+                    LogDebug("Initialize failure");
                     return null;
                 }
                 else
@@ -2714,11 +2733,11 @@ namespace SkyNet20
             {
                 if (e.InnerException != null)
                 {
-                    this.LogError("Error encounted, inner error: " + e.InnerException.StackTrace);
+                    this.LogError("Error encounted, inner error: " + e.InnerException.ToString());
                 }
                 else
                 {
-                    this.LogError("Error encounted, error: " + e.StackTrace);
+                    this.LogError("Error encounted, error: " + e.ToString());
                 }
             }
             return null;
@@ -2754,7 +2773,6 @@ namespace SkyNet20
                 var primary = savaMachines[i];
 
                 nodes.Add(primary);
-                nodes.AddRange(GetSuccessors(primary, savaMachinesRingList));
 
                 tasks[i] = SendPartitionData(partitions[i], filename, i, nodes);
             }
@@ -2796,7 +2814,9 @@ namespace SkyNet20
                 PollForWorkers();
 
                 currentIteration++;
-            } while (!HasJobCompleted() && !jobHasFailed);
+            } while (!HasJobCompleted() || !jobHasFailed);
+
+            LogDebug("RunRounds finish");
         }
         
         public void PollForWorkers()
@@ -2809,8 +2829,8 @@ namespace SkyNet20
                     if (savaMachine.Status == Status.Failed)
                     {
                         jobHasFailed = true;
-                        LogError($"Job ${runningJob.JobName} restarting due to failure on {savaMachine.HostName}");
-                        break;
+                        LogImportant($"Job {runningJob.JobName} restarting due to failure on {savaMachine.HostName}");
+                        return;
                     }
                 }
 
@@ -2841,16 +2861,30 @@ namespace SkyNet20
                 }
             }
 
-            using (FileStream fs = File.Create("results.txt"))
+            await Task.Run(() =>
             {
-                using (StreamWriter sw = new StreamWriter(fs))
+                combined.Sort((v1, v2) => ((double)v2.Value.UntypedValue).CompareTo((double)v1.Value.UntypedValue));
+                int i = 0;
+
+                using (FileStream fs = File.Create("results.txt"))
                 {
-                    foreach (Vertex v in combined)
+                    using (StreamWriter sw = new StreamWriter(fs))
                     {
-                        sw.WriteLine($"{v.VertexId}, {v.Value.UntypedValue.ToString()}");
+                        foreach (Vertex v in combined)
+                        {
+                            sw.WriteLine($"{v.VertexId}, {v.Value.UntypedValue.ToString()}");
+
+                            if (i < 25)
+                            {
+                                Console.WriteLine($"{v.VertexId}, {v.Value.UntypedValue.ToString()}");
+                            }
+
+                            i++;
+                        }
                     }
                 }
-            }
+            });
+
 
             return combined;
         }
@@ -2888,7 +2922,10 @@ namespace SkyNet20
 
                 SavaPacket<IterationPacket> packet = new SavaPacket<IterationPacket>
                 {
-                    Header = new SavaPacketHeader(),
+                    Header = new SavaPacketHeader()
+                    {
+                        MachineId = machineId,
+                    },
 
                     Payload = new IterationPacket
                     {
@@ -2921,7 +2958,10 @@ namespace SkyNet20
                     NetworkStream stream = client.GetStream();
 
                     SavaPacketHeader packetHeader = Serializer.DeserializeWithLengthPrefix<SavaPacketHeader>(stream, PrefixStyle.Base128);
-                    this.LogImportant($"Received {packetHeader.PayloadType.ToString()} packet from {machineId}.");
+                    if (packetHeader.PayloadType != SavaPayloadType.VertexMessage)
+                    {
+                        this.LogImportant($"Received {packetHeader.PayloadType.ToString()} packet from {packetHeader.MachineId}.");
+                    }
 
                     if (isSavaMaster)
                     {
@@ -2942,6 +2982,7 @@ namespace SkyNet20
                     {
                         case SavaPayloadType.WorkerStart:
                             WorkerStartPacket sp = Serializer.DeserializeWithLengthPrefix<WorkerStartPacket>(stream, PrefixStyle.Base128);
+                            savaMachines = GetSavaMachines().Values.ToList<SkyNetNodeInfo>();
                             worker = new Worker(this, sp.partition, sp.job, sp.WorkerPartitions.Count, sp.GraphInfo);
                             break;
 
@@ -2952,7 +2993,15 @@ namespace SkyNet20
 
                         case SavaPayloadType.VertexMessage:
                             VertexMessagesPacket vmp = Serializer.DeserializeWithLengthPrefix<VertexMessagesPacket>(stream, PrefixStyle.Base128);
-                            worker.QueueIncomingMessages(vmp.messages);
+                            if (vmp.messages == null)
+                            {
+                                this.LogError($"Received null messages from {packetHeader.MachineId}");
+                            }
+                            else
+                            {
+                                worker.QueueIncomingMessages(vmp.messages);
+                            }
+                            
                             break;
 
                         case SavaPayloadType.ResultsRequest:
@@ -2969,7 +3018,7 @@ namespace SkyNet20
                 }
                 catch (Exception e)
                 {
-                    this.LogError("SavaError: " + e.StackTrace);
+                    this.LogError("SavaError: " + e);
                 }
             }
         }
@@ -2995,7 +3044,10 @@ namespace SkyNet20
 
                 SavaPacket<WorkerStartPacket> packet = new SavaPacket<WorkerStartPacket>
                 {
-                    Header = new SavaPacketHeader(),
+                    Header = new SavaPacketHeader()
+                    {
+                        MachineId = machineId,
+                    },
 
                     Payload = new WorkerStartPacket
                     {
@@ -3011,17 +3063,23 @@ namespace SkyNet20
             }
         }
 
-        public void SubmitSavaJob(Job job)
+        public List<Vertex> SubmitSavaJob(Job job)
         {
-            SkyNetNodeInfo master = GetSavaMaster();
+            Stopwatch sw = new Stopwatch();
+            List<Vertex> results = new List<Vertex>();
+            IPAddress master = GetIpAddress(SkyNetConfiguration.Machines.First(x => x.Value.IsSavaMaster).Key);
             using (TcpClient client = new TcpClient())
             {
-                client.Connect(master.IPAddress, SkyNetConfiguration.SavaPort);
+                client.Connect(master, SkyNetConfiguration.SavaPort);
                 NetworkStream stream = client.GetStream();
 
                 SavaPacket<JobProcessingRequest> savaPacket = new SavaPacket<JobProcessingRequest>()
                 {
-                    Header = new SavaPacketHeader(),
+                    Header = new SavaPacketHeader()
+                    {
+                        MachineId = machineId,
+                    },
+
                     Payload = new JobProcessingRequest
                     {
                         requestJob = job
@@ -3031,8 +3089,40 @@ namespace SkyNet20
                 byte[] packet = savaPacket.ToBytes();
                 stream.Write(packet, 0, packet.Length);
             }
-
             this.LogImportant($"Job {job.JobName} has been submitted.");
+            sw.Start();
+
+            // Wait for response
+            if (!this.isConnected)
+            {
+                TcpListener server = new TcpListener(IPAddress.Any, SkyNetConfiguration.SavaPort);
+                server.Start();
+
+                try
+                {
+                    TcpClient client = server.AcceptTcpClient();
+                    NetworkStream stream = client.GetStream();
+
+                    results = Serializer.DeserializeWithLengthPrefix<List<Vertex>>(stream, PrefixStyle.Base128);
+
+                    // Shutdown and end connection
+                    client.Close();
+                }
+                catch (Exception e)
+                {
+                    this.LogError("SavaError: " + e);
+                }
+
+                sw.Stop();
+                this.LogImportant($"Completed in {sw.Elapsed.TotalMinutes} minutes.");
+
+                if (results.Count == 0)
+                {
+                    this.LogImportant("No results found.");
+                }
+            }
+
+            return results;
         }
 
         public void SendWorkerCompletion(int activeVertices)
@@ -3045,7 +3135,11 @@ namespace SkyNet20
 
                 SavaPacket<WorkerCompletionPacket> savaPacket = new SavaPacket<WorkerCompletionPacket>()
                 {
-                    Header = new SavaPacketHeader(),
+                    Header = new SavaPacketHeader()
+                    {
+                        MachineId = machineId,
+                    },
+
                     Payload = new WorkerCompletionPacket
                     {
                         ActiveVertices = activeVertices,
@@ -3060,22 +3154,32 @@ namespace SkyNet20
 
         public void SendVertexMessages(Message[] sendMessages, int partitionNumber)
         {
-            using (TcpClient client = new TcpClient())
+            try
             {
-                client.Connect(savaMachines[partitionNumber].IPAddress, SkyNetConfiguration.SavaPort);
-                NetworkStream stream = client.GetStream();
-
-                SavaPacket<VertexMessagesPacket> savaPacket = new SavaPacket<VertexMessagesPacket>()
+                using (TcpClient client = new TcpClient())
                 {
-                    Header = new SavaPacketHeader(),
-                    Payload = new VertexMessagesPacket
-                    {
-                        messages = sendMessages,
-                    },
-                };
+                    client.Connect(savaMachines[partitionNumber].IPAddress, SkyNetConfiguration.SavaPort);
+                    NetworkStream stream = client.GetStream();
 
-                byte[] packet = savaPacket.ToBytes();
-                stream.Write(packet, 0, packet.Length);
+                    SavaPacket<VertexMessagesPacket> savaPacket = new SavaPacket<VertexMessagesPacket>()
+                    {
+                        Header = new SavaPacketHeader()
+                        {
+                            MachineId = machineId,
+                        },
+
+                        Payload = new VertexMessagesPacket
+                        {
+                            messages = sendMessages,
+                        },
+                    };
+
+                    byte[] packet = savaPacket.ToBytes();
+                    stream.Write(packet, 0, packet.Length);
+                }
+            } catch (Exception e)
+            {
+                // This could happen due to node failure
             }
         }
 

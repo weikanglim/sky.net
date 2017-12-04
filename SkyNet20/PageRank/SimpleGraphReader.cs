@@ -28,32 +28,39 @@ namespace PageRank
 
                     string fromId = tuple[0];
                     string toId = tuple[1];
-                    List<Edge> edges;
 
-                    if (!vertices.ContainsKey(fromId))
-                    {
-                        PageRangeVertex newVertex = new PageRangeVertex
-                        {
-                            VertexId = fromId,
-                            OutEdges = new List<Edge>(),
-                        };
-
-                        vertices.Add(newVertex.VertexId, newVertex);
-                        edges = newVertex.OutEdges;
-                    }
-                    else
-                    {
-                        edges = vertices[fromId].OutEdges;
-                    }
-
-                    edges.Add(new Edge
-                    {
-                        ToVertex = toId,
-                    });
+                    addEdge(vertices, fromId, toId);
+                    addEdge(vertices, toId, fromId);
                 }
+
+                return vertices.Values.ToList<Vertex>();
+            }
+        }
+
+        private void addEdge(Dictionary<string, Vertex> vertices, string vertexFrom, string vertexTo)
+        {
+            List<Edge> edges;
+
+            if (!vertices.ContainsKey(vertexFrom))
+            {
+                PageRangeVertex newVertex = new PageRangeVertex
+                {
+                    VertexId = vertexFrom,
+                    OutEdges = new List<Edge>(),
+                };
+
+                vertices.Add(newVertex.VertexId, newVertex);
+                edges = newVertex.OutEdges;
+            }
+            else
+            {
+                edges = vertices[vertexFrom].OutEdges;
             }
 
-            return vertices.Values.ToList<Vertex>();
+            edges.Add(new Edge
+            {
+                ToVertex = vertexTo,
+            });
         }
     }
 }

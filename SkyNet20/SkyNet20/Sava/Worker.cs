@@ -9,6 +9,7 @@ using System.Linq;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
 
 namespace SkyNet20.Sava
 {
@@ -22,11 +23,11 @@ namespace SkyNet20.Sava
         private List<Vertex> vertices;
         private GraphInfo graphInfo;
 
-        private Dictionary<string, List<Message>> currentMessages = new Dictionary<string, List<Message>>();
-        private Dictionary<string, List<Message>> messageQueue = new Dictionary<string, List<Message>>();
+        private IDictionary<string, List<Message>> currentMessages = new Dictionary<string, List<Message>>();
+        private ConcurrentDictionary<string, List<Message>> messageQueue = new ConcurrentDictionary<string, List<Message>>();
 
         private Dictionary<string, bool> activeVertices = new Dictionary<string, bool>();
-        private Dictionary<string, bool> queuedActiveVertices = new Dictionary<string, bool>();
+        private ConcurrentDictionary<string, bool> queuedActiveVertices = new ConcurrentDictionary<string, bool>();
 
         private List<Queue<Message>> outgoingMessages = new List<Queue<Message>>();
 
@@ -44,35 +45,57 @@ namespace SkyNet20.Sava
 
         public void ProcessNewIteration(int newIteration)
         {
-            if (newIteration != currentIteration + 1)
+            try
             {
-                node.LogError("Unexpected iteration");
-            }
-
-
-            if (newIteration == 0)
-            {
-                Initialize();
-            }
-            else
-            {
-                currentMessages = messageQueue;
-                messageQueue = new Dictionary<string, List<Message>>();
-
-                foreach (var kvp in activeVertices)
+                if (newIteration != currentIteration + 1)
                 {
-                    if (kvp.Value == false && queuedActiveVertices.ContainsKey(kvp.Key) && queuedActiveVertices[kvp.Key] == true)
-                    {
-                        // Re-activate vertices
-                        activeVertices[kvp.Key] = true;
-                    }
+                    node.LogError("Unexpected iteration");
                 }
-                queuedActiveVertices = new Dictionary<string, bool>();
-            }
 
+                node.LogDebug($"Worker starting iteration {newIteration}");
+
+                if (newIteration == 0)
+                {
+                    Initialize();
+                }
+                else
+                {
+                    currentMessages = messageQueue;
+                    messageQueue = new ConcurrentDictionary<string, List<Message>>();
+
+                    foreach (var kvp in activeVertices)
+                    {
+                        if (kvp.Value == false && queuedActiveVertices.ContainsKey(kvp.Key) && queuedActiveVertices[kvp.Key] == true)
+                        {
+                            // Re-activate vertices
+                            activeVertices[kvp.Key] = true;
+                        }
+                    }
+                    queuedActiveVertices = new ConcurrentDictionary<string, bool>();
+                }
+
+                node.LogDebug($"Worker calling compute");
+                ComputeAll(newIteration);
+                node.LogDebug($"Worker completed iteration {newIteration}.");
+
+                FlushOutgoingMessages();
+
+                node.LogDebug($"Flushed remaining messages.");
+
+                currentIteration = newIteration;
+                node.SendWorkerCompletion(activeVertices.Values.Where(alive => alive == true).Count());
+            }
+            catch (Exception e)
+            {
+                node.LogError("Worker iteration error: " + e.ToString());
+            }
+        }
+
+        private void ComputeAll(int iteration)
+        {
             foreach (Vertex v in vertices)
             {
-                v.CurrentIteration = newIteration;
+                v.CurrentIteration = iteration;
                 if (currentMessages.ContainsKey(v.VertexId))
                 {
                     v.Compute(currentMessages[v.VertexId]);
@@ -82,9 +105,6 @@ namespace SkyNet20.Sava
                     v.Compute(new List<Message>());
                 }
             }
-
-            currentIteration = newIteration;
-            node.SendWorkerCompletion(activeVertices.Values.Where(x => x == true).Count<bool>());
         }
 
         public List<Vertex> Vertices
@@ -110,7 +130,6 @@ namespace SkyNet20.Sava
             if (!messageQueue.ContainsKey(m.VertexId))
             {
                 messagesForVertex = new List<Message>();
-                messageQueue.Add(m.VertexId, messagesForVertex);
             }
             else
             {
@@ -118,15 +137,22 @@ namespace SkyNet20.Sava
             }
 
             messagesForVertex.Add(m);
+            messageQueue.AddOrUpdate(m.VertexId, messagesForVertex, (key, oldValue) => messagesForVertex);
 
             if (!queuedActiveVertices.ContainsKey(m.VertexId))
             {
-                queuedActiveVertices.Add(m.VertexId, true);
+                queuedActiveVertices.AddOrUpdate(m.VertexId, true, (key, oldValue) => true);
             }
         }
 
         public void QueueIncomingMessages(Message[] messages)
         {
+            if (messages == null)
+            {
+                node.LogError("Null message received.");
+                return;
+            }
+
             foreach (Message m in messages)
             {
                 QueueIncomingMessage(m);
@@ -140,10 +166,32 @@ namespace SkyNet20.Sava
 
             if (destinationPartition.Count > MESSAGE_BUFFER)
             {
-                Message[] sendMessages = new Message[destinationPartition.Count];
-                destinationPartition.CopyTo(sendMessages, 0);
-                node.SendVertexMessages(sendMessages, partitionNumber);
+                FlushMessageQueue(destinationPartition, partitionNumber);
             }
+        }
+
+        public void FlushOutgoingMessages()
+        {
+            for (int i = 0; i < outgoingMessages.Count; i++)
+            {
+                FlushMessageQueue(outgoingMessages[i], i);
+            }
+        }
+
+        private void FlushMessageQueue(Queue<Message> messageQueue, int destinationPartition)
+        {
+            if (messageQueue.Count == 0)
+            {
+                return;
+            }
+
+            // Copy all messages to a message array
+            Message[] sendMessages = new Message[messageQueue.Count];
+            messageQueue.CopyTo(sendMessages, 0);
+            node.SendVertexMessages(sendMessages, destinationPartition);
+
+            // Flush partition
+            messageQueue.Clear();
         }
 
         public void InactivateVertex(object o, EventArgs eventArgs)

@@ -31,7 +31,7 @@ namespace SkyNet20.Sava.Defaults
 
         public int PartitionNumber(string vertexId, int workerCount)
         {
-            return vertexId.GetHashCode() % workerCount;
+            return Math.Abs(vertexId.GetHashCode()) % workerCount;
         }
     }
 }
