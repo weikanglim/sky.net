@@ -29,24 +29,9 @@ namespace PageRank
 
             SkyNetNode node = new SkyNetNode();
 
-            if (args.Length >= 1)
-            {
-                List<Vertex> results = node.SubmitSavaJob(job);
-
-                results.Sort((v1, v2) => ((double)v2.Value.UntypedValue).CompareTo((double)v1.Value.UntypedValue));
-
-                for (int i = 0; i < 25; i++)
-                {
-                    Console.WriteLine($"{results[i].VertexId}, {results[i].Value.UntypedValue}");
-                }
-            }
-            else
-            {
-                node.Run();
-            }
+            Task.Run(() =>node.Run());
+            node.RunSavaJob(job).GetAwaiter().GetResult();
             Console.ReadLine();
-            //Task.Run(() => node.Run());
-            //node.RunSavaJob(job).Wait();
         }
     }
 }

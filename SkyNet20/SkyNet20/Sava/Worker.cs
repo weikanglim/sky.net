@@ -83,6 +83,7 @@ namespace SkyNet20.Sava
                 node.LogDebug($"Flushed remaining messages.");
 
                 currentIteration = newIteration;
+                
                 node.SendWorkerCompletion(activeVertices.Values.Where(alive => alive == true).Count());
             }
             catch (Exception e)

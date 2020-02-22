@@ -2749,13 +2749,6 @@ namespace SkyNet20
             FileStream fs = File.Open(SkyNetConfiguration.ProgramPath + Path.DirectorySeparatorChar + job.InputFile, FileMode.Open);
             var savaMachinesRingList = GetSavaMachines();
             savaMachines = savaMachinesRingList.Values.ToList<SkyNetNodeInfo>();
-            //// !TODO: REmove
-            //var thisNode = new SkyNetNodeInfo("vpnpool-130-126-147-202.near.illinois.edu", this.machineId);
-            //savaMachines.Add(thisNode);
-            //machineList.GetOrAdd(thisNode.MachineId, thisNode);
-            //this.isConnected = true;
-            //this.isSavaMaster = true;
-            ////END
             this.LogDebug("Reading graph file");
             List<Vertex> vertices = job.GraphReader.ReadFile(fs);
             this.LogDebug("Partitioning graph file");
