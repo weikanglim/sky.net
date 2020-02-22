@@ -1,13 +1,13 @@
-# weilim - SkyNet (CS 425)
+# weilim - Sky.Net (CS 425)
 ## Readme
 
-SkyNet is a distributed system implemented in .NET Core that supports:
+Sky.Net is a distributed system implemented in .NET Core that supports:
   1. A distributed file system
   2. Distributed jobs processing such as distributed PageRank
 
-SkyNet is resilient up to 4 node failures at a given time.
+Sky.Net is resilient up to 4 node failures at a given time.
 
-## Running SkyNet.2.0 for grading
+## Running Sky.Net.2.0 for grading
 
 To build and run from source, run the following command in the root project directory:
 
